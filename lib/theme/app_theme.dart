@@ -71,7 +71,7 @@ class AppTheme {
       ),
 
       // Cards
-      cardTheme: CardThemeData(
+      cardTheme: CardTheme(
         color: surfaceCard,
         elevation: 2,
         shadowColor: Colors.black12,
@@ -191,7 +191,7 @@ class AppTheme {
 
       scaffoldBackgroundColor: const Color(0xFF0F0F1E),
 
-      cardTheme: CardThemeData(
+      cardTheme: CardTheme(
         color: const Color(0xFF1E1E2E),
         elevation: 4,
         shape: RoundedRectangleBorder(
