@@ -19,7 +19,7 @@ dependencies:
   # State management
   flutter_riverpod: ^2.5.1
 
-  # Secure token storage (JWT) — pinned to stable version
+  # Secure token storage (JWT)
   flutter_secure_storage: 9.0.0
 
   # General key-value storage
@@ -68,7 +68,6 @@ flutter:
 
   assets:
     - assets/images/
-    - assets/icons/
 
   fonts:
     - family: Poppins
