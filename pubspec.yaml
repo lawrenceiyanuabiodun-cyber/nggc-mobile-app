@@ -68,8 +68,6 @@ dev_dependencies:
 
 # ─────────────────────────────────────────────────────────────
 # App Icon Configuration
-# Generates launcher icons for Android + iOS from one source image
-# Run: dart run flutter_launcher_icons
 # ─────────────────────────────────────────────────────────────
 flutter_launcher_icons:
   android: "ic_launcher"
@@ -86,6 +84,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/bibles/
 
   fonts:
     - family: Poppins

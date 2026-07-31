@@ -5,6 +5,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'config/app_config.dart';
+import 'services/bible_loader_service.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
@@ -49,8 +50,38 @@ class NGGCApp extends ConsumerWidget {
 }
 
 /// Production splash screen
-class SplashPlaceholder extends StatelessWidget {
+/// Also loads bundled Bibles into Hive on first launch
+class SplashPlaceholder extends StatefulWidget {
   const SplashPlaceholder({super.key});
+
+  @override
+  State<SplashPlaceholder> createState() => _SplashPlaceholderState();
+}
+
+class _SplashPlaceholderState extends State<SplashPlaceholder> {
+  String _statusText = 'Loading...';
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeApp();
+  }
+
+  Future<void> _initializeApp() async {
+    // Show "Preparing Bible..." only on first launch
+    setState(() => _statusText = 'Preparing Bible...');
+
+    // Load bundled Bibles into Hive (skips if already loaded)
+    await BibleLoaderService.ensureBiblesLoaded();
+
+    // Small delay so splash is visible even on fast devices
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    if (!mounted) return;
+    setState(() => _statusText = 'Ready');
+
+    // TODO: Navigate to Login/Home screen here in Stage 15.2
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -125,7 +156,7 @@ class SplashPlaceholder extends StatelessWidget {
                     ),
                   ),
 
-                  const SizedBox(height: 80),
+                  const SizedBox(height: 60),
 
                   // Loading spinner
                   const SizedBox(
@@ -134,6 +165,18 @@ class SplashPlaceholder extends StatelessWidget {
                     child: CircularProgressIndicator(
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       strokeWidth: 2.5,
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Status text (shows "Preparing Bible..." on first launch)
+                  Text(
+                    _statusText,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.white70,
+                      letterSpacing: 1.0,
                     ),
                   ),
                 ],
@@ -196,7 +239,6 @@ class LiaConceptBadge extends StatelessWidget {
 }
 
 /// Custom painter for L.I.A tech/AI logo
-/// Draws a neural network node design
 class _LiaLogoPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -205,11 +247,10 @@ class _LiaLogoPainter extends CustomPainter {
     final cx = w / 2;
     final cy = h / 2;
 
-    // Gradient for nodes
     final gradient = const LinearGradient(
       colors: [
-        Color(0xFF64B5F6), // Light blue
-        Color(0xFFBA68C8), // Purple
+        Color(0xFF64B5F6),
+        Color(0xFFBA68C8),
       ],
     ).createShader(Rect.fromLTWH(0, 0, w, h));
 
@@ -222,32 +263,29 @@ class _LiaLogoPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
 
-    // Positions of 4 outer nodes + 1 center node
     final centerNode = Offset(cx, cy);
     final topNode = Offset(cx, cy - h * 0.4);
     final leftNode = Offset(cx - w * 0.4, cy);
     final rightNode = Offset(cx + w * 0.4, cy);
     final bottomNode = Offset(cx, cy + h * 0.4);
 
-    // Draw connecting lines (neural pathways)
+    // Neural pathways
     canvas.drawLine(centerNode, topNode, linePaint);
     canvas.drawLine(centerNode, leftNode, linePaint);
     canvas.drawLine(centerNode, rightNode, linePaint);
     canvas.drawLine(centerNode, bottomNode, linePaint);
-
-    // Diagonal connections (extra AI-network feel)
     canvas.drawLine(topNode, leftNode, linePaint);
     canvas.drawLine(topNode, rightNode, linePaint);
     canvas.drawLine(bottomNode, leftNode, linePaint);
     canvas.drawLine(bottomNode, rightNode, linePaint);
 
-    // Draw outer nodes (small circles)
+    // Outer nodes
     canvas.drawCircle(topNode, 2.5, nodePaint);
     canvas.drawCircle(leftNode, 2.5, nodePaint);
     canvas.drawCircle(rightNode, 2.5, nodePaint);
     canvas.drawCircle(bottomNode, 2.5, nodePaint);
 
-    // Draw center node (larger + glow)
+    // Center node with glow
     final glowPaint = Paint()
       ..shader = gradient
       ..style = PaintingStyle.fill
