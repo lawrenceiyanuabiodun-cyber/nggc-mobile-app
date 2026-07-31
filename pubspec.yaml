@@ -1,0 +1,82 @@
+name: nggc
+description: "New Generation Gospel Church Sunday School App"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Icons
+  cupertino_icons: ^1.0.8
+
+  # HTTP / API calls
+  http: ^1.2.2
+
+  # State management
+  flutter_riverpod: ^2.5.1
+
+  # Secure token storage (JWT) — pinned to stable version
+  flutter_secure_storage: 9.0.0
+
+  # General key-value storage
+  shared_preferences: ^2.3.2
+
+  # Local database for offline Bible + notes + favorites
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # Cached images (announcement/event flyers)
+  cached_network_image: ^3.3.1
+
+  # Date formatting
+  intl: ^0.19.0
+
+  # Open external links
+  url_launcher: ^6.3.0
+
+  # File paths
+  path_provider: ^2.1.4
+
+  # Local notifications display
+  flutter_local_notifications: ^17.2.3
+
+  # Google Fonts typography
+  google_fonts: ^6.2.1
+
+  # Connectivity detection
+  connectivity_plus: ^6.1.0
+
+  # Shimmer loading effect
+  shimmer: ^3.0.0
+
+  # App version info
+  package_info_plus: ^8.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.12
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+        - asset: assets/fonts/Poppins-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Poppins-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Poppins-Bold.ttf
+          weight: 700
