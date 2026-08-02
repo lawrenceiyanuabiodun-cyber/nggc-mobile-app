@@ -8,6 +8,7 @@ import '../favorites/favorites_screen.dart';
 import '../notes/notes_screen.dart';
 import '../progress/progress_screen.dart';
 import '../search/search_screen.dart';
+import 'change_pin_screen.dart';
 
 // ─────────────────────────────────────────────────────────
 // ProfileScreen
@@ -117,6 +118,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             _buildSection(
               title: 'My Activity',
               children: [
+                _buildNavTile(
+                  icon: Icons.lock_reset_outlined,
+                  label: 'Change PIN',
+                  subtitle: 'Update your 4-digit login PIN',
+                  color: AppTheme.primaryBlueDark,
+                  onTap: () => _navigateTo(const ChangePinScreen()),
+                ),
                 _buildNavTile(
                   icon: Icons.search,
                   label: 'Search Lessons',
@@ -481,3 +489,4 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return s[0].toUpperCase() + s.substring(1);
   }
 }
+
