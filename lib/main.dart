@@ -28,6 +28,7 @@ void main() async {
 
   final appDocDir = await getApplicationDocumentsDirectory();
   await Hive.initFlutter(appDocDir.path);
+  await Hive.openBox(AppConfig.settingsBoxName);
 
   runApp(
     const ProviderScope(
@@ -347,3 +348,4 @@ class _LiaLogoPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+

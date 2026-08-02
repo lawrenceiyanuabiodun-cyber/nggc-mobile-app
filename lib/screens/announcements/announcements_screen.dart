@@ -2,7 +2,9 @@
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
+import '../../services/cache_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/common/shimmer_widgets.dart';
 
 class AnnouncementsScreen extends StatefulWidget {
   const AnnouncementsScreen({super.key});
@@ -22,11 +24,39 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     _fetchAnnouncements();
   }
 
-  Future<void> _fetchAnnouncements() async {
+  void _sortList(List<dynamic> list) {
+    list.sort((a, b) {
+      final aPinned = a['is_pinned'] == true ? 1 : 0;
+      final bPinned = b['is_pinned'] == true ? 1 : 0;
+      if (aPinned != bPinned) return bPinned.compareTo(aPinned);
+
+      final aDate = a['created_at']?.toString() ?? '';
+      final bDate = b['created_at']?.toString() ?? '';
+      return bDate.compareTo(aDate);
+    });
+  }
+
+  Future<void> _fetchAnnouncements({bool forceRefresh = false}) async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
+
+    final cached = CacheService.getAnnouncements();
+    if (cached != null && cached.isNotEmpty) {
+      _sortList(cached);
+      setState(() {
+        _announcements = cached;
+        _isLoading = false;
+      });
+    }
+
+    if (!forceRefresh &&
+        cached != null &&
+        cached.isNotEmpty &&
+        !CacheService.isAnnouncementsExpired()) {
+      return;
+    }
 
     final response = await ApiService.get('/announcements');
 
@@ -34,23 +64,20 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
 
     if (response.isSuccess) {
       final list = response.asList ?? [];
-      list.sort((a, b) {
-        final aPinned = a['is_pinned'] == true ? 1 : 0;
-        final bPinned = b['is_pinned'] == true ? 1 : 0;
-        if (aPinned != bPinned) return bPinned.compareTo(aPinned);
-        final aDate = a['created_at']?.toString() ?? '';
-        final bDate = b['created_at']?.toString() ?? '';
-        return bDate.compareTo(aDate);
-      });
+      _sortList(list);
+      await CacheService.saveAnnouncements(list);
+
       setState(() {
         _announcements = list;
         _isLoading = false;
       });
     } else {
-      setState(() {
-        _error = response.error ?? 'Failed to load announcements';
-        _isLoading = false;
-      });
+      if (_announcements.isEmpty) {
+        setState(() {
+          _error = response.error ?? 'Failed to load announcements';
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -66,29 +93,16 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _fetchAnnouncements,
+            onPressed: () => _fetchAnnouncements(forceRefresh: true),
+            tooltip: 'Refresh',
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(color: AppTheme.primaryBlue),
-                  SizedBox(height: 16),
-                  Text(
-                    'Loading announcements...',
-                    style: TextStyle(color: AppTheme.textSecondary),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Server may take up to 60s to wake up',
-                    style: TextStyle(
-                        fontSize: 11, color: AppTheme.textHint),
-                  ),
-                ],
-              ),
+          ? ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: 5,
+              itemBuilder: (_, __) => const ShimmerAnnouncementCard(),
             )
           : _error != null
               ? _buildError()
@@ -105,26 +119,40 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.wifi_off_outlined,
-                size: 56, color: AppTheme.textHint),
+            const Icon(
+              Icons.wifi_off_outlined,
+              size: 56,
+              color: AppTheme.textHint,
+            ),
             const SizedBox(height: 16),
             const Text(
               'Could not load announcements',
               style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary),
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               _error!,
-              style:
-                  const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppTheme.textSecondary,
+              ),
               textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Server may take up to 60s to wake up',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppTheme.textHint,
+              ),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: _fetchAnnouncements,
+              onPressed: () => _fetchAnnouncements(forceRefresh: true),
               icon: const Icon(Icons.refresh),
               label: const Text('Try Again'),
               style: ElevatedButton.styleFrom(
@@ -143,20 +171,27 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.campaign_outlined,
-              size: 56, color: AppTheme.textHint.withOpacity(0.5)),
+          Icon(
+            Icons.campaign_outlined,
+            size: 56,
+            color: AppTheme.textHint.withOpacity(0.5),
+          ),
           const SizedBox(height: 16),
           const Text(
             'No announcements yet',
             style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textSecondary),
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textSecondary,
+            ),
           ),
           const SizedBox(height: 8),
           const Text(
             'Check back later for church updates',
-            style: TextStyle(fontSize: 13, color: AppTheme.textHint),
+            style: TextStyle(
+              fontSize: 13,
+              color: AppTheme.textHint,
+            ),
           ),
         ],
       ),
@@ -166,7 +201,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   Widget _buildList() {
     return RefreshIndicator(
       color: AppTheme.primaryBlue,
-      onRefresh: _fetchAnnouncements,
+      onRefresh: () => _fetchAnnouncements(forceRefresh: true),
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         itemCount: _announcements.length,
@@ -181,8 +216,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
 
   Widget _buildCard(Map<String, dynamic> item, bool isPinned) {
     final title = item['title']?.toString() ?? 'Announcement';
-    final body = item['body']?.toString() ??
-        item['content']?.toString() ?? '';
+    final body =
+        item['body']?.toString() ?? item['content']?.toString() ?? '';
     final createdAt = item['created_at']?.toString() ?? '';
     final formattedDate = _formatDate(createdAt);
 
@@ -207,7 +242,6 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
             decoration: BoxDecoration(
@@ -244,7 +278,9 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                 if (isPinned)
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: AppTheme.accentGold,
                       borderRadius: BorderRadius.circular(20),
@@ -261,7 +297,6 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
               ],
             ),
           ),
-          // Body
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
             child: Column(
@@ -279,13 +314,18 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      const Icon(Icons.access_time,
-                          size: 12, color: AppTheme.textHint),
+                      const Icon(
+                        Icons.access_time,
+                        size: 12,
+                        color: AppTheme.textHint,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         formattedDate,
                         style: const TextStyle(
-                            fontSize: 11, color: AppTheme.textHint),
+                          fontSize: 11,
+                          color: AppTheme.textHint,
+                        ),
                       ),
                     ],
                   ),

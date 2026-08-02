@@ -2,13 +2,10 @@
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
+import '../../services/cache_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/common/shimmer_widgets.dart';
 
-// ─────────────────────────────────────────────────────────
-// EventsScreen
-// Shows church events from /events API
-// Supports RSVP via /events/{id}/rsvp
-// ─────────────────────────────────────────────────────────
 class EventsScreen extends StatefulWidget {
   const EventsScreen({super.key});
 
@@ -20,8 +17,6 @@ class _EventsScreenState extends State<EventsScreen> {
   List<dynamic> _events = [];
   bool _isLoading = true;
   String? _error;
-
-  // Track which events are being RSVP'd (to show per-card loading)
   final Set<String> _rsvpLoading = {};
 
   @override
@@ -30,11 +25,37 @@ class _EventsScreenState extends State<EventsScreen> {
     _fetchEvents();
   }
 
-  Future<void> _fetchEvents() async {
+  void _sortEvents(List<dynamic> list) {
+    list.sort((a, b) {
+      final aDate =
+          a['event_date']?.toString() ?? a['date']?.toString() ?? '';
+      final bDate =
+          b['event_date']?.toString() ?? b['date']?.toString() ?? '';
+      return aDate.compareTo(bDate);
+    });
+  }
+
+  Future<void> _fetchEvents({bool forceRefresh = false}) async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
+
+    final cached = CacheService.getEvents();
+    if (cached != null && cached.isNotEmpty) {
+      _sortEvents(cached);
+      setState(() {
+        _events = cached;
+        _isLoading = false;
+      });
+    }
+
+    if (!forceRefresh &&
+        cached != null &&
+        cached.isNotEmpty &&
+        !CacheService.isEventsExpired()) {
+      return;
+    }
 
     final response = await ApiService.get('/events');
 
@@ -42,27 +63,22 @@ class _EventsScreenState extends State<EventsScreen> {
 
     if (response.isSuccess) {
       final list = response.asList ?? [];
-      // Sort by event date ascending (soonest first)
-      list.sort((a, b) {
-        final aDate = a['event_date']?.toString() ??
-            a['date']?.toString() ?? '';
-        final bDate = b['event_date']?.toString() ??
-            b['date']?.toString() ?? '';
-        return aDate.compareTo(bDate);
-      });
+      _sortEvents(list);
+      await CacheService.saveEvents(list);
       setState(() {
         _events = list;
         _isLoading = false;
       });
     } else {
-      setState(() {
-        _error = response.error ?? 'Failed to load events';
-        _isLoading = false;
-      });
+      if (_events.isEmpty) {
+        setState(() {
+          _error = response.error ?? 'Failed to load events';
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  // ── RSVP to event ──────────────────────────────────────
   Future<void> _rsvp(String eventId) async {
     setState(() => _rsvpLoading.add(eventId));
 
@@ -89,8 +105,7 @@ class _EventsScreenState extends State<EventsScreen> {
           duration: const Duration(seconds: 3),
         ),
       );
-      // Refresh list to show updated RSVP count
-      _fetchEvents();
+      await _fetchEvents(forceRefresh: true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -105,7 +120,6 @@ class _EventsScreenState extends State<EventsScreen> {
     }
   }
 
-  // ── Cancel RSVP ────────────────────────────────────────
   Future<void> _cancelRsvp(String eventId) async {
     setState(() => _rsvpLoading.add(eventId));
 
@@ -121,7 +135,15 @@ class _EventsScreenState extends State<EventsScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-      _fetchEvents();
+      await _fetchEvents(forceRefresh: true);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(response.error ?? 'Cancel failed. Try again.'),
+          backgroundColor: AppTheme.errorRed,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -137,32 +159,16 @@ class _EventsScreenState extends State<EventsScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _fetchEvents,
+            onPressed: () => _fetchEvents(forceRefresh: true),
             tooltip: 'Refresh',
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(color: AppTheme.primaryBlue),
-                  SizedBox(height: 16),
-                  Text(
-                    'Loading events...',
-                    style: TextStyle(color: AppTheme.textSecondary),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Server may take up to 60s to wake up',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppTheme.textHint,
-                    ),
-                  ),
-                ],
-              ),
+          ? ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: 4,
+              itemBuilder: (_, __) => const ShimmerEventCard(),
             )
           : _error != null
               ? _buildError()
@@ -172,7 +178,6 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
-  // ── Error State ────────────────────────────────────────
   Widget _buildError() {
     return Center(
       child: Padding(
@@ -205,7 +210,7 @@ class _EventsScreenState extends State<EventsScreen> {
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: _fetchEvents,
+              onPressed: () => _fetchEvents(forceRefresh: true),
               icon: const Icon(Icons.refresh),
               label: const Text('Try Again'),
               style: ElevatedButton.styleFrom(
@@ -219,7 +224,6 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
-  // ── Empty State ────────────────────────────────────────
   Widget _buildEmpty() {
     return Center(
       child: Column(
@@ -252,11 +256,10 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
-  // ── Events List ────────────────────────────────────────
   Widget _buildList() {
     return RefreshIndicator(
       color: AppTheme.primaryBlue,
-      onRefresh: _fetchEvents,
+      onRefresh: () => _fetchEvents(forceRefresh: true),
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         itemCount: _events.length,
@@ -268,7 +271,6 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
-  // ── Event Card ─────────────────────────────────────────
   Widget _buildEventCard(Map<String, dynamic> event) {
     final id = event['id']?.toString() ?? '';
     final title = event['title']?.toString() ?? 'Event';
@@ -276,11 +278,11 @@ class _EventsScreenState extends State<EventsScreen> {
     final location = event['location']?.toString() ?? '';
     final isFeatured = event['is_featured'] == true;
     final rsvpCount = event['rsvp_count'] ?? event['rsvps_count'] ?? 0;
-    final userRsvpd = event['user_rsvpd'] == true ||
-        event['has_rsvpd'] == true;
+    final userRsvpd =
+        event['user_rsvpd'] == true || event['has_rsvpd'] == true;
 
-    final rawDate = event['event_date']?.toString() ??
-        event['date']?.toString() ?? '';
+    final rawDate =
+        event['event_date']?.toString() ?? event['date']?.toString() ?? '';
     final formattedDate = _formatDate(rawDate);
     final formattedTime = _formatTime(rawDate);
     final isUpcoming = _isUpcoming(rawDate);
@@ -307,7 +309,6 @@ class _EventsScreenState extends State<EventsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Card Top Strip ───────────────────────────
           Container(
             height: 6,
             decoration: BoxDecoration(
@@ -322,13 +323,11 @@ class _EventsScreenState extends State<EventsScreen> {
               ),
             ),
           ),
-
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Title Row ─────────────────────────
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -364,10 +363,7 @@ class _EventsScreenState extends State<EventsScreen> {
                       ),
                   ],
                 ),
-
                 const SizedBox(height: 10),
-
-                // ── Date & Time ───────────────────────
                 if (formattedDate.isNotEmpty)
                   Row(
                     children: [
@@ -403,8 +399,6 @@ class _EventsScreenState extends State<EventsScreen> {
                       ],
                     ],
                   ),
-
-                // ── Location ──────────────────────────
                 if (location.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Row(
@@ -429,8 +423,6 @@ class _EventsScreenState extends State<EventsScreen> {
                     ],
                   ),
                 ],
-
-                // ── Description ───────────────────────
                 if (description.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Text(
@@ -444,13 +436,9 @@ class _EventsScreenState extends State<EventsScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
-
                 const SizedBox(height: 14),
-
-                // ── Footer: RSVP Count + Button ───────
                 Row(
                   children: [
-                    // RSVP count
                     Row(
                       children: [
                         const Icon(
@@ -468,10 +456,7 @@ class _EventsScreenState extends State<EventsScreen> {
                         ),
                       ],
                     ),
-
                     const Spacer(),
-
-                    // RSVP Button
                     if (isUpcoming && id.isNotEmpty)
                       SizedBox(
                         height: 36,
@@ -521,8 +506,6 @@ class _EventsScreenState extends State<EventsScreen> {
                                     ),
                                   ),
                       ),
-
-                    // Past event badge
                     if (!isUpcoming)
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -551,7 +534,6 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
-  // ── Helpers ────────────────────────────────────────────
   String _formatDate(String raw) {
     if (raw.isEmpty) return '';
     try {
