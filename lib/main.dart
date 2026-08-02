@@ -32,6 +32,7 @@ void main() async {
   await Hive.initFlutter(appDocDir.path);
   await Hive.openBox(AppConfig.settingsBoxName);
   await Hive.openBox(AppConfig.verseBoxName);
+  await Hive.openBox(AppConfig.progressBoxName);
   await NotificationService.initialize();
 
   runApp(
@@ -335,3 +336,4 @@ class _LiaLogoPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+

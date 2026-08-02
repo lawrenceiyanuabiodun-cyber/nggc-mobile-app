@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 
 import '../../services/api_service.dart';
+import '../../services/progress_cache_service.dart';
 import '../../services/cache_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common/shimmer_widgets.dart';
@@ -174,6 +175,7 @@ class _LessonsScreenState extends State<LessonsScreen>
     final String id = lesson['id']?.toString() ?? '';
     final String quarter = lesson['quarter']?.toString() ?? '';
     final isEnglish = lang.toLowerCase() == 'english';
+    final isCompleted = ProgressCacheService.isCompleted(id);
 
     return Card(
       elevation: 2,
@@ -198,27 +200,39 @@ class _LessonsScreenState extends State<LessonsScreen>
           padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              // Number badge
+              // Number badge or completion badge
               Container(
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: isEnglish
-                      ? AppTheme.primaryBlue.withOpacity(0.08)
-                      : AppTheme.successGreen.withOpacity(0.08),
+                  color: isCompleted
+                      ? AppTheme.successGreen.withOpacity(0.1)
+                      : isEnglish
+                          ? AppTheme.primaryBlue.withOpacity(0.08)
+                          : AppTheme.successGreen.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(10),
+                  border: isCompleted
+                      ? Border.all(
+                          color: AppTheme.successGreen.withOpacity(0.4))
+                      : null,
                 ),
                 child: Center(
-                  child: Text(
-                    '${index + 1}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: isEnglish
-                          ? AppTheme.primaryBlue
-                          : AppTheme.successGreen,
-                    ),
-                  ),
+                  child: isCompleted
+                      ? const Icon(
+                          Icons.check_circle,
+                          color: AppTheme.successGreen,
+                          size: 22,
+                        )
+                      : Text(
+                          "${index + 1}",
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: isEnglish
+                                ? AppTheme.primaryBlue
+                                : AppTheme.successGreen,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -374,4 +388,6 @@ class _LessonsScreenState extends State<LessonsScreen>
     );
   }
 }
+
+
 

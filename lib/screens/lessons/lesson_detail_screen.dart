@@ -2,6 +2,7 @@
 
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
+import '../../services/progress_cache_service.dart';
 import '../../widgets/common/shimmer_widgets.dart';
 
 // ─────────────────────────────────────────────────────────
@@ -92,6 +93,9 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
 
   // ── Track reading progress ─────────────────────────────
   Future<void> _trackProgress() async {
+    // Save locally first (works offline)
+    await ProgressCacheService.markCompleted(widget.lessonId);
+    // Then sync with API
     await ApiService.post(
       '/progress/',
       body: {
@@ -646,3 +650,4 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     );
   }
 }
+
