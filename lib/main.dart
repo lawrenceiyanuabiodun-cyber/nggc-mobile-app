@@ -5,11 +5,12 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'config/app_config.dart';
-import 'services/notification_service.dart';
 import 'providers/auth_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
+import 'screens/onboarding/onboarding_screen.dart';
 import 'services/bible_loader_service.dart';
+import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
@@ -61,8 +62,7 @@ class NGGCApp extends ConsumerWidget {
 
 // ─────────────────────────────────────────────────────────
 // AppRouter
-// Shows splash first, then routes to Login or Home
-// based on auth state
+// Shows splash → onboarding (first time) → Login or Home
 // ─────────────────────────────────────────────────────────
 class AppRouter extends ConsumerStatefulWidget {
   const AppRouter({super.key});
@@ -73,6 +73,7 @@ class AppRouter extends ConsumerStatefulWidget {
 
 class _AppRouterState extends ConsumerState<AppRouter> {
   bool _splashDone = false;
+  bool _onboardingComplete = false;
   String _statusText = 'Loading...';
 
   @override
@@ -82,30 +83,42 @@ class _AppRouterState extends ConsumerState<AppRouter> {
   }
 
   Future<void> _initializeApp() async {
-    // Show "Preparing Bible..." only on first launch
     setState(() => _statusText = 'Preparing Bible...');
 
     // Load bundled Bibles into Hive (skips if already loaded)
     await BibleLoaderService.ensureBiblesLoaded();
 
-    // Small delay so splash is visible even on fast devices
+    // Check if onboarding was already completed
+    final onboardingDone = await OnboardingHelper.isComplete();
+
+    // Minimum splash visibility
     await Future.delayed(const Duration(milliseconds: 800));
 
     if (!mounted) return;
     setState(() {
       _statusText = 'Ready';
+      _onboardingComplete = onboardingDone;
       _splashDone = true;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // Show splash until Bible is loaded
+    // Show splash until Bible + onboarding check done
     if (!_splashDone) {
       return _SplashBody(statusText: _statusText);
     }
 
-    // Watch auth state — routes automatically when state changes
+    // Show onboarding on first launch only
+    if (!_onboardingComplete) {
+      return OnboardingScreen(
+        onComplete: () {
+          setState(() => _onboardingComplete = true);
+        },
+      );
+    }
+
+    // Watch auth state
     final authState = ref.watch(authProvider);
 
     // Auth still checking local storage
@@ -124,8 +137,7 @@ class _AppRouterState extends ConsumerState<AppRouter> {
 }
 
 // ─────────────────────────────────────────────────────────
-// _SplashBody
-// Production splash screen — ORIGINAL DESIGN PRESERVED
+// _SplashBody — Original splash design preserved
 // L.I.A CONCEPT badge at bottom RIGHT
 // ─────────────────────────────────────────────────────────
 class _SplashBody extends StatelessWidget {
@@ -140,12 +152,10 @@ class _SplashBody extends StatelessWidget {
       body: SafeArea(
         child: Stack(
           children: [
-            // ── Main Content (Centered) ────────────────
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // NGGC Logo
                   Image.asset(
                     'assets/images/nggc-logo.png',
                     width: 120,
@@ -166,10 +176,7 @@ class _SplashBody extends StatelessWidget {
                       );
                     },
                   ),
-
                   const SizedBox(height: 32),
-
-                  // App Name
                   const Text(
                     'NGGC',
                     style: TextStyle(
@@ -179,10 +186,7 @@ class _SplashBody extends StatelessWidget {
                       letterSpacing: 8,
                     ),
                   ),
-
                   const SizedBox(height: 8),
-
-                  // Full church name
                   const Text(
                     'New Generation Gospel Church',
                     style: TextStyle(
@@ -192,10 +196,7 @@ class _SplashBody extends StatelessWidget {
                     ),
                     textAlign: TextAlign.center,
                   ),
-
                   const SizedBox(height: 4),
-
-                  // Tagline
                   const Text(
                     'Sunday School',
                     style: TextStyle(
@@ -205,10 +206,7 @@ class _SplashBody extends StatelessWidget {
                       letterSpacing: 1.5,
                     ),
                   ),
-
                   const SizedBox(height: 60),
-
-                  // Loading spinner
                   const SizedBox(
                     width: 28,
                     height: 28,
@@ -218,10 +216,7 @@ class _SplashBody extends StatelessWidget {
                       strokeWidth: 2.5,
                     ),
                   ),
-
                   const SizedBox(height: 20),
-
-                  // Status text
                   Text(
                     statusText,
                     style: const TextStyle(
@@ -233,8 +228,7 @@ class _SplashBody extends StatelessWidget {
                 ],
               ),
             ),
-
-            // ── L.I.A CONCEPT Credit (Bottom RIGHT) ───
+            // L.I.A CONCEPT badge — bottom RIGHT
             const Positioned(
               right: 16,
               bottom: 16,
@@ -248,8 +242,7 @@ class _SplashBody extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────
-// LiaConceptBadge
-// Tech/AI brand badge — ORIGINAL DESIGN PRESERVED
+// LiaConceptBadge — original design preserved
 // ─────────────────────────────────────────────────────────
 class LiaConceptBadge extends StatelessWidget {
   const LiaConceptBadge({super.key});
@@ -260,18 +253,16 @@ class LiaConceptBadge extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Tech / AI Logo Icon
         CustomPaint(
           size: const Size(32, 32),
           painter: _LiaLogoPainter(),
         ),
         const SizedBox(height: 4),
-        // Brand name
         ShaderMask(
           shaderCallback: (bounds) => const LinearGradient(
             colors: [
-              Color(0xFF64B5F6), // Light blue
-              Color(0xFFBA68C8), // Purple
+              Color(0xFF64B5F6),
+              Color(0xFFBA68C8),
             ],
           ).createShader(bounds),
           child: const Text(
@@ -290,8 +281,7 @@ class LiaConceptBadge extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────
-// _LiaLogoPainter — ORIGINAL DESIGN PRESERVED
-// Neural network style custom icon
+// _LiaLogoPainter — original neural network logo
 // ─────────────────────────────────────────────────────────
 class _LiaLogoPainter extends CustomPainter {
   @override
@@ -302,10 +292,7 @@ class _LiaLogoPainter extends CustomPainter {
     final cy = h / 2;
 
     final gradient = const LinearGradient(
-      colors: [
-        Color(0xFF64B5F6),
-        Color(0xFFBA68C8),
-      ],
+      colors: [Color(0xFF64B5F6), Color(0xFFBA68C8)],
     ).createShader(Rect.fromLTWH(0, 0, w, h));
 
     final nodePaint = Paint()
@@ -323,7 +310,6 @@ class _LiaLogoPainter extends CustomPainter {
     final rightNode = Offset(cx + w * 0.4, cy);
     final bottomNode = Offset(cx, cy + h * 0.4);
 
-    // Neural pathways
     canvas.drawLine(centerNode, topNode, linePaint);
     canvas.drawLine(centerNode, leftNode, linePaint);
     canvas.drawLine(centerNode, rightNode, linePaint);
@@ -333,13 +319,11 @@ class _LiaLogoPainter extends CustomPainter {
     canvas.drawLine(bottomNode, leftNode, linePaint);
     canvas.drawLine(bottomNode, rightNode, linePaint);
 
-    // Outer nodes
     canvas.drawCircle(topNode, 2.5, nodePaint);
     canvas.drawCircle(leftNode, 2.5, nodePaint);
     canvas.drawCircle(rightNode, 2.5, nodePaint);
     canvas.drawCircle(bottomNode, 2.5, nodePaint);
 
-    // Center node with glow
     final glowPaint = Paint()
       ..shader = gradient
       ..style = PaintingStyle.fill
@@ -351,6 +335,3 @@ class _LiaLogoPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-
-
-
