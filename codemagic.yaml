@@ -17,10 +17,7 @@ workflows:
         script: |
           flutter analyze || echo "Analyze completed with warnings"
         ignore_failure: true
-      - name: Build Android APK (Release, split per ABI)
-        script: |
-          flutter build apk --release --split-per-abi
-      - name: Build Universal APK (fallback)
+      - name: Build Android APK (Release)
         script: |
           flutter build apk --release
     artifacts:
