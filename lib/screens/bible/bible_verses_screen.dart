@@ -4,13 +4,12 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../services/bible_loader_service.dart';
 import '../../theme/app_theme.dart';
+import 'bible_saved_verses_screen.dart';
 
 // ─────────────────────────────────────────────────────────
 // BibleVersesScreen
 // Displays all verses for a chapter
-// Supports: verse highlight, font size, prev/next chapter
-// Share verse via share_plus
-// Copy verse to clipboard on long press
+// Supports: highlight, share, copy, bookmark, font size
 // ─────────────────────────────────────────────────────────
 class BibleVersesScreen extends StatefulWidget {
   final String language;
@@ -41,7 +40,6 @@ class _BibleVersesScreenState extends State<BibleVersesScreen> {
   late String _currentChapter;
   final ScrollController _scrollController = ScrollController();
 
-  // OT = purple, NT = blue
   Color get _accentColor => widget.bookNumber <= 39
       ? const Color(0xFF6A1B9A)
       : const Color(0xFF1565C0);
@@ -107,13 +105,13 @@ class _BibleVersesScreenState extends State<BibleVersesScreen> {
     _loadVerses();
   }
 
-  // ── Copy verse to clipboard ────────────────────────────
+  // ── Copy verse ─────────────────────────────────────────
   void _copyVerse(String verseNum, String text) {
     final ref = '${widget.bookName} $_currentChapter:$verseNum';
     Clipboard.setData(ClipboardData(text: '"$text" — $ref'));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('$ref copied to clipboard'),
+        content: Text('$ref copied'),
         backgroundColor: AppTheme.primaryBlue,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
@@ -127,9 +125,65 @@ class _BibleVersesScreenState extends State<BibleVersesScreen> {
   // ── Share verse ────────────────────────────────────────
   void _shareVerse(String verseNum, String text) {
     final ref = '${widget.bookName} $_currentChapter:$verseNum';
-    final shareText =
-        '"$text"\n\n— $ref\n\nShared from NGGC Sunday School App';
-    Share.share(shareText, subject: ref);
+    Share.share(
+      '"$text"\n\n— $ref\n\nShared from NGGC Sunday School App',
+      subject: ref,
+    );
+  }
+
+  // ── Bookmark verse ─────────────────────────────────────
+  Future<void> _bookmarkVerse(String verseNum, String text) async {
+    final verse = SavedVerse(
+      bookName: widget.bookName,
+      chapter: _currentChapter,
+      verseNum: verseNum,
+      text: text,
+      language: widget.language,
+      savedAt: DateTime.now(),
+    );
+
+    final alreadySaved = BibleVerseStorage.isVersesSaved(verse.key);
+
+    if (alreadySaved) {
+      await BibleVerseStorage.deleteVerse(verse.key);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                '${widget.bookName} $_currentChapter:$verseNum removed'),
+            backgroundColor: AppTheme.textSecondary,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } else {
+      await BibleVerseStorage.saveVerse(verse);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.bookmark, color: Colors.white, size: 16),
+                const SizedBox(width: 8),
+                Text(
+                    '${widget.bookName} $_currentChapter:$verseNum saved!'),
+              ],
+            ),
+            backgroundColor: _accentColor,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+    setState(() {});
   }
 
   @override
@@ -149,6 +203,17 @@ class _BibleVersesScreenState extends State<BibleVersesScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
+          // View saved verses
+          IconButton(
+            icon: const Icon(Icons.bookmarks_outlined, size: 20),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const BibleSavedVersesScreen(),
+              ),
+            ),
+            tooltip: 'Saved verses',
+          ),
           // Share highlighted verse
           if (_highlightedVerse != null && _highlightedText != null)
             IconButton(
@@ -169,25 +234,16 @@ class _BibleVersesScreenState extends State<BibleVersesScreen> {
               ),
               tooltip: 'Copy verse',
             ),
-          // Font size decrease
+          // Font size controls
           IconButton(
             icon: const Icon(Icons.text_decrease, size: 20),
-            onPressed: () {
-              setState(() {
-                if (_fontSize > 12) _fontSize -= 2;
-              });
-            },
-            tooltip: 'Decrease font size',
+            onPressed: () =>
+                setState(() => _fontSize = (_fontSize - 2).clamp(12, 26)),
           ),
-          // Font size increase
           IconButton(
             icon: const Icon(Icons.text_increase, size: 20),
-            onPressed: () {
-              setState(() {
-                if (_fontSize < 26) _fontSize += 2;
-              });
-            },
-            tooltip: 'Increase font size',
+            onPressed: () =>
+                setState(() => _fontSize = (_fontSize + 2).clamp(12, 26)),
           ),
         ],
       ),
@@ -204,7 +260,7 @@ class _BibleVersesScreenState extends State<BibleVersesScreen> {
   Widget _buildBody(bool hasPrev, bool hasNext) {
     return Column(
       children: [
-        // ── Chapter Info Bar ─────────────────────────
+        // Info bar
         Container(
           color: AppTheme.primaryBlue,
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
@@ -212,16 +268,13 @@ class _BibleVersesScreenState extends State<BibleVersesScreen> {
             children: [
               Text(
                 '${_verseList.length} verses',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.white70,
-                ),
+                style: const TextStyle(fontSize: 12, color: Colors.white70),
               ),
               const Spacer(),
               if (_highlightedVerse != null)
-                Text(
-                  'Verse $_highlightedVerse selected — tap share or copy above',
-                  style: const TextStyle(
+                const Text(
+                  'Tap bookmark • share • copy above',
+                  style: TextStyle(
                     fontSize: 10,
                     color: AppTheme.accentGold,
                   ),
@@ -239,7 +292,7 @@ class _BibleVersesScreenState extends State<BibleVersesScreen> {
           ),
         ),
 
-        // ── Verse List ───────────────────────────────
+        // Verse list
         Expanded(
           child: ListView.builder(
             controller: _scrollController,
@@ -249,26 +302,29 @@ class _BibleVersesScreenState extends State<BibleVersesScreen> {
               final entry = _verseList[index];
               final verseNum = int.tryParse(entry.key) ?? 0;
               final isHighlighted = _highlightedVerse == verseNum;
+              final isSaved = BibleVerseStorage.isVersesSaved(
+                '${widget.language}_${widget.bookName}_${_currentChapter}_$verseNum',
+              );
               return _buildVerseTile(
                 verseNum: verseNum,
                 text: entry.value,
                 isHighlighted: isHighlighted,
+                isSaved: isSaved,
               );
             },
           ),
         ),
 
-        // ── Prev / Next Navigation ───────────────────
         _buildNavBar(hasPrev, hasNext),
       ],
     );
   }
 
-  // ── Verse Tile ─────────────────────────────────────────
   Widget _buildVerseTile({
     required int verseNum,
     required String text,
     required bool isHighlighted,
+    required bool isSaved,
   }) {
     return GestureDetector(
       onTap: () {
@@ -296,11 +352,15 @@ class _BibleVersesScreenState extends State<BibleVersesScreen> {
         decoration: BoxDecoration(
           color: isHighlighted
               ? _accentColor.withOpacity(0.08)
-              : Colors.transparent,
+              : isSaved
+                  ? _accentColor.withOpacity(0.03)
+                  : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           border: isHighlighted
               ? Border.all(color: _accentColor.withOpacity(0.3))
-              : null,
+              : isSaved
+                  ? Border.all(color: _accentColor.withOpacity(0.15))
+                  : null,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,8 +373,11 @@ class _BibleVersesScreenState extends State<BibleVersesScreen> {
                 style: TextStyle(
                   fontSize: _fontSize - 4,
                   fontWeight: FontWeight.bold,
-                  color:
-                      isHighlighted ? _accentColor : AppTheme.textHint,
+                  color: isHighlighted
+                      ? _accentColor
+                      : isSaved
+                          ? _accentColor.withOpacity(0.5)
+                          : AppTheme.textHint,
                 ),
               ),
             ),
@@ -335,18 +398,41 @@ class _BibleVersesScreenState extends State<BibleVersesScreen> {
                 ),
               ),
             ),
-            // Share icon on highlighted
+            // Action icons on highlight
             if (isHighlighted)
-              GestureDetector(
-                onTap: () => _shareVerse('$verseNum', text),
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 8, top: 2),
-                  child: Icon(
-                    Icons.share_outlined,
-                    size: 16,
-                    color: _accentColor.withOpacity(0.7),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(width: 6),
+                  // Bookmark
+                  GestureDetector(
+                    onTap: () => _bookmarkVerse('$verseNum', text),
+                    child: Icon(
+                      isSaved ? Icons.bookmark : Icons.bookmark_outline,
+                      size: 18,
+                      color: isSaved
+                          ? _accentColor
+                          : _accentColor.withOpacity(0.5),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  // Share
+                  GestureDetector(
+                    onTap: () => _shareVerse('$verseNum', text),
+                    child: Icon(
+                      Icons.share_outlined,
+                      size: 16,
+                      color: _accentColor.withOpacity(0.7),
+                    ),
+                  ),
+                ],
+              )
+            // Saved indicator (not highlighted)
+            else if (isSaved)
+              Icon(
+                Icons.bookmark,
+                size: 14,
+                color: _accentColor.withOpacity(0.4),
               ),
           ],
         ),
@@ -354,7 +440,6 @@ class _BibleVersesScreenState extends State<BibleVersesScreen> {
     );
   }
 
-  // ── Nav Bar ────────────────────────────────────────────
   Widget _buildNavBar(bool hasPrev, bool hasNext) {
     final currentNum = int.tryParse(_currentChapter) ?? 1;
 
@@ -384,8 +469,10 @@ class _BibleVersesScreenState extends State<BibleVersesScreen> {
             ),
           ),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 6,
+            ),
             decoration: BoxDecoration(
               color: _accentColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
@@ -415,33 +502,26 @@ class _BibleVersesScreenState extends State<BibleVersesScreen> {
     );
   }
 
-  // ── Empty State ────────────────────────────────────────
   Widget _buildEmpty() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.menu_book_outlined,
-            size: 48,
-            color: AppTheme.textHint,
-          ),
-          const SizedBox(height: 12),
+        children: const [
+          Icon(Icons.menu_book_outlined,
+              size: 48, color: AppTheme.textHint),
+          SizedBox(height: 12),
           Text(
-            'No verses found for ${widget.bookName} $_currentChapter',
-            style: const TextStyle(
+            'No verses found',
+            style: TextStyle(
               color: AppTheme.textSecondary,
               fontSize: 14,
             ),
-            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Tap any verse to highlight • Long-press to copy',
-            style: TextStyle(
-              color: AppTheme.textHint,
-              fontSize: 12,
-            ),
+          SizedBox(height: 8),
+          Text(
+            'Tap to highlight • Long-press to copy\nBookmark icon to save',
+            style: TextStyle(color: AppTheme.textHint, fontSize: 12),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
