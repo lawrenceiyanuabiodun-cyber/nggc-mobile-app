@@ -4,6 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
+import '../bible/bible_language_screen.dart';
+import '../lessons/lessons_screen.dart';
+import '../announcements/announcements_screen.dart';
+import '../events/events_screen.dart';
 
 // ─────────────────────────────────────────────────────────
 // HomeScreen
@@ -126,6 +130,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (confirm == true) {
       await ref.read(authProvider.notifier).logout();
     }
+  }
+
+  // ── Navigate to screen ────────────────────────────────
+  void _navigateTo(Widget screen) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => screen),
+    );
   }
 
   @override
@@ -319,15 +331,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    const Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.menu_book_outlined,
                           color: AppTheme.accentGold,
                           size: 18,
                         ),
-                        const SizedBox(width: 8),
-                        const Text(
+                        SizedBox(width: 8),
+                        Text(
                           'Verse of the Day',
                           style: TextStyle(
                             fontSize: 12,
@@ -387,7 +399,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  // ── Feature Grid (2x2) ─────────────────────────────────
+  // ── Feature Grid (2x2) — ALL NAVIGATION WIRED ─────────
   Widget _buildFeatureGrid() {
     final features = [
       _FeatureItem(
@@ -395,40 +407,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         label: 'Bible',
         subtitle: 'Read Scripture',
         color: const Color(0xFF1565C0),
-        onTap: () {
-          // TODO: Navigate to Bible screen (Phase 2)
-          _showComingSoon('Bible Reader');
-        },
+        onTap: () => _navigateTo(const BibleLanguageScreen()),
       ),
       _FeatureItem(
         icon: Icons.school_outlined,
         label: 'Lessons',
         subtitle: 'Study Materials',
         color: const Color(0xFF2E7D32),
-        onTap: () {
-          // TODO: Navigate to Lessons screen (Phase 2)
-          _showComingSoon('Lessons');
-        },
+        onTap: () => _navigateTo(const LessonsScreen()),
       ),
       _FeatureItem(
         icon: Icons.campaign_outlined,
         label: 'Announcements',
         subtitle: 'Church Updates',
         color: const Color(0xFFE65100),
-        onTap: () {
-          // TODO: Navigate to Announcements screen (Phase 2)
-          _showComingSoon('Announcements');
-        },
+        onTap: () => _navigateTo(const AnnouncementsScreen()),
       ),
       _FeatureItem(
         icon: Icons.event_outlined,
         label: 'Events',
         subtitle: 'Upcoming Events',
         color: const Color(0xFF6A1B9A),
-        onTap: () {
-          // TODO: Navigate to Events screen (Phase 2)
-          _showComingSoon('Events');
-        },
+        onTap: () => _navigateTo(const EventsScreen()),
       ),
     ];
 
@@ -534,10 +534,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildNoLesson() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
+    return const Padding(
+      padding: EdgeInsets.all(24),
       child: Row(
-        children: const [
+        children: [
           Icon(Icons.info_outline, color: AppTheme.textHint, size: 20),
           SizedBox(width: 12),
           Expanded(
@@ -557,13 +557,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildLessonContent(Map<String, dynamic> lesson) {
     final title = lesson['title']?.toString() ??
-        lesson['lesson_title']?.toString() ?? 'Today\'s Lesson';
+        lesson['lesson_title']?.toString() ?? "Today's Lesson";
     final topic = lesson['topic']?.toString() ?? '';
     final language = lesson['language']?.toString() ?? 'english';
     final quarter = lesson['quarter']?.toString() ?? '';
 
     return InkWell(
-      onTap: () => _showComingSoon('Lesson Detail'),
+      onTap: () => _navigateTo(
+        LessonsScreen(),
+      ),
       borderRadius: BorderRadius.circular(16),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -659,8 +661,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       currentIndex: _currentIndex,
       onTap: (index) {
         setState(() => _currentIndex = index);
-        if (index == 1) _showComingSoon('Bible');
-        if (index == 2) _showComingSoon('Lessons');
+        if (index == 1) _navigateTo(const BibleLanguageScreen());
+        if (index == 2) _navigateTo(const LessonsScreen());
         if (index == 3) _showComingSoon('Profile');
       },
       selectedItemColor: AppTheme.primaryBlue,
