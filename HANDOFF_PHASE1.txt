@@ -1,0 +1,3 @@
+﻿$handoff = Get-Clipboard
+Set-Content -Path "C:\dev\nggc\mobile_app\HANDOFF_PHASE1.txt" -Value $handoff -Encoding UTF8
+Write-Host "✅ Handoff saved to C:\dev\nggc\mobile_app\HANDOFF_PHASE1.txt"

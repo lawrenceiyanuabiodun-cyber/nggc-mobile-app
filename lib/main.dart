@@ -1,10 +1,13 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'config/app_config.dart';
+import 'providers/auth_provider.dart';
+import 'screens/auth/login_screen.dart';
+import 'screens/home/home_screen.dart';
 import 'services/bible_loader_service.dart';
 import 'theme/app_theme.dart';
 
@@ -33,6 +36,9 @@ void main() async {
   );
 }
 
+// ─────────────────────────────────────────────────────────
+// NGGCApp — Root widget
+// ─────────────────────────────────────────────────────────
 class NGGCApp extends ConsumerWidget {
   const NGGCApp({super.key});
 
@@ -44,21 +50,25 @@ class NGGCApp extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
-      home: const SplashPlaceholder(),
+      home: const AppRouter(),
     );
   }
 }
 
-/// Production splash screen
-/// Also loads bundled Bibles into Hive on first launch
-class SplashPlaceholder extends StatefulWidget {
-  const SplashPlaceholder({super.key});
+// ─────────────────────────────────────────────────────────
+// AppRouter
+// Shows splash first, then routes to Login or Home
+// based on auth state
+// ─────────────────────────────────────────────────────────
+class AppRouter extends ConsumerStatefulWidget {
+  const AppRouter({super.key});
 
   @override
-  State<SplashPlaceholder> createState() => _SplashPlaceholderState();
+  ConsumerState<AppRouter> createState() => _AppRouterState();
 }
 
-class _SplashPlaceholderState extends State<SplashPlaceholder> {
+class _AppRouterState extends ConsumerState<AppRouter> {
+  bool _splashDone = false;
   String _statusText = 'Loading...';
 
   @override
@@ -78,10 +88,46 @@ class _SplashPlaceholderState extends State<SplashPlaceholder> {
     await Future.delayed(const Duration(milliseconds: 800));
 
     if (!mounted) return;
-    setState(() => _statusText = 'Ready');
-
-    // TODO: Navigate to Login/Home screen here in Stage 15.2
+    setState(() {
+      _statusText = 'Ready';
+      _splashDone = true;
+    });
   }
+
+  @override
+  Widget build(BuildContext context) {
+    // Show splash until Bible is loaded
+    if (!_splashDone) {
+      return _SplashBody(statusText: _statusText);
+    }
+
+    // Watch auth state — routes automatically when state changes
+    final authState = ref.watch(authProvider);
+
+    // Auth still checking local storage
+    if (authState.isUnknown) {
+      return const _SplashBody(statusText: 'Checking session...');
+    }
+
+    // Logged in → Home
+    if (authState.isAuthenticated) {
+      return const HomeScreen();
+    }
+
+    // Not logged in → Login
+    return const LoginScreen();
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// _SplashBody
+// Production splash screen — ORIGINAL DESIGN PRESERVED
+// L.I.A CONCEPT badge at bottom RIGHT
+// ─────────────────────────────────────────────────────────
+class _SplashBody extends StatelessWidget {
+  final String statusText;
+
+  const _SplashBody({required this.statusText});
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +136,7 @@ class _SplashPlaceholderState extends State<SplashPlaceholder> {
       body: SafeArea(
         child: Stack(
           children: [
-            // ─── Main Content (Centered) ─────────────────
+            // ── Main Content (Centered) ────────────────
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -163,16 +209,17 @@ class _SplashPlaceholderState extends State<SplashPlaceholder> {
                     width: 28,
                     height: 28,
                     child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(Colors.white),
                       strokeWidth: 2.5,
                     ),
                   ),
 
                   const SizedBox(height: 20),
 
-                  // Status text (shows "Preparing Bible..." on first launch)
+                  // Status text
                   Text(
-                    _statusText,
+                    statusText,
                     style: const TextStyle(
                       fontSize: 12,
                       color: Colors.white70,
@@ -183,9 +230,9 @@ class _SplashPlaceholderState extends State<SplashPlaceholder> {
               ),
             ),
 
-            // ─── L.I.A CONCEPT Credit (Bottom Left) ──────
+            // ── L.I.A CONCEPT Credit (Bottom RIGHT) ───
             const Positioned(
-              left: 16,
+              right: 16,
               bottom: 16,
               child: LiaConceptBadge(),
             ),
@@ -196,17 +243,17 @@ class _SplashPlaceholderState extends State<SplashPlaceholder> {
   }
 }
 
-/// ─────────────────────────────────────────────────────────
-/// L.I.A CONCEPT Custom Logo + Text
-/// A minimalist tech/AI themed badge
-/// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────
+// LiaConceptBadge
+// Tech/AI brand badge — ORIGINAL DESIGN PRESERVED
+// ─────────────────────────────────────────────────────────
 class LiaConceptBadge extends StatelessWidget {
   const LiaConceptBadge({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisSize: MainAxisSize.min,
       children: [
         // Tech / AI Logo Icon
@@ -238,7 +285,10 @@ class LiaConceptBadge extends StatelessWidget {
   }
 }
 
-/// Custom painter for L.I.A tech/AI logo
+// ─────────────────────────────────────────────────────────
+// _LiaLogoPainter — ORIGINAL DESIGN PRESERVED
+// Neural network style custom icon
+// ─────────────────────────────────────────────────────────
 class _LiaLogoPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
