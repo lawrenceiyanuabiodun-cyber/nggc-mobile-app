@@ -4,10 +4,15 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
+import '../favorites/favorites_screen.dart';
+import '../notes/notes_screen.dart';
+import '../progress/progress_screen.dart';
+import '../search/search_screen.dart';
 
 // ─────────────────────────────────────────────────────────
 // ProfileScreen
-// Shows user profile info + app settings + logout
+// User profile + quick access to Search, Favorites,
+// Notes, Progress + Logout
 // ─────────────────────────────────────────────────────────
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -28,9 +33,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<void> _loadAppVersion() async {
     try {
       final info = await PackageInfo.fromPlatform();
-      if (mounted) {
-        setState(() => _appVersion = 'v${info.version}');
-      }
+      if (mounted) setState(() => _appVersion = 'v${info.version}');
     } catch (_) {
       setState(() => _appVersion = 'v1.0.0');
     }
@@ -75,6 +78,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  void _navigateTo(Widget screen) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => screen),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
@@ -86,6 +96,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         backgroundColor: AppTheme.primaryBlue,
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          // Search icon in appbar
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () => _navigateTo(const SearchScreen()),
+            tooltip: 'Search Lessons',
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -95,7 +113,45 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
             const SizedBox(height: 24),
 
-            // ── Info Section ─────────────────────────
+            // ── Quick Actions ────────────────────────
+            _buildSection(
+              title: 'My Activity',
+              children: [
+                _buildNavTile(
+                  icon: Icons.search,
+                  label: 'Search Lessons',
+                  subtitle: 'Find lessons by title or topic',
+                  color: AppTheme.primaryBlue,
+                  onTap: () => _navigateTo(const SearchScreen()),
+                ),
+                _buildNavTile(
+                  icon: Icons.favorite_outline,
+                  label: 'My Favorites',
+                  subtitle: 'Lessons you have saved',
+                  color: AppTheme.errorRed,
+                  onTap: () => _navigateTo(const FavoritesScreen()),
+                ),
+                _buildNavTile(
+                  icon: Icons.sticky_note_2_outlined,
+                  label: 'My Notes',
+                  subtitle: 'Personal lesson notes',
+                  color: AppTheme.accentGoldDark,
+                  onTap: () => _navigateTo(const NotesScreen()),
+                ),
+                _buildNavTile(
+                  icon: Icons.bar_chart_outlined,
+                  label: 'Reading Progress',
+                  subtitle: 'Track your study progress',
+                  color: AppTheme.successGreen,
+                  onTap: () => _navigateTo(const ProgressScreen()),
+                  isLast: true,
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── Account Info ─────────────────────────
             _buildSection(
               title: 'Account Info',
               children: [
@@ -123,13 +179,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   value: user?.preferredLanguage != null
                       ? _capitalize(user!.preferredLanguage!)
                       : 'Not set',
+                  isLast: true,
                 ),
               ],
             ),
 
             const SizedBox(height: 16),
 
-            // ── App Section ──────────────────────────
+            // ── App Info ─────────────────────────────
             _buildSection(
               title: 'App Info',
               children: [
@@ -148,20 +205,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   label: 'Ministry',
                   value: 'Sunday School Department',
                 ),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            // ── Developer Section ────────────────────
-            _buildSection(
-              title: 'About',
-              children: [
                 _buildInfoTile(
                   icon: Icons.code_outlined,
                   label: 'Developed by',
                   value: 'L.I.A CONCEPT',
                   valueColor: AppTheme.primaryBlueLight,
+                  isLast: true,
                 ),
               ],
             ),
@@ -209,7 +258,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
       child: Column(
         children: [
-          // Avatar circle
           Container(
             width: 86,
             height: 86,
@@ -232,10 +280,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
           ),
-
           const SizedBox(height: 14),
-
-          // Full name
           Text(
             fullName,
             style: const TextStyle(
@@ -244,10 +289,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               color: Colors.white,
             ),
           ),
-
           const SizedBox(height: 6),
-
-          // Role badge
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: 14,
@@ -317,19 +359,93 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  // ── Info Tile ──────────────────────────────────────────
+  // ── Nav Tile (with arrow) ──────────────────────────────
+  Widget _buildNavTile({
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+    bool isLast = false,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: isLast
+          ? const BorderRadius.only(
+              bottomLeft: Radius.circular(14),
+              bottomRight: Radius.circular(14),
+            )
+          : BorderRadius.zero,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          border: isLast
+              ? null
+              : const Border(
+                  bottom: BorderSide(color: AppTheme.dividerColor),
+                ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 18, color: color),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textHint,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right,
+              color: AppTheme.textHint,
+              size: 18,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Info Tile (display only) ───────────────────────────
   Widget _buildInfoTile({
     required IconData icon,
     required String label,
     required String value,
     Color? valueColor,
+    bool isLast = false,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppTheme.dividerColor),
-        ),
+      decoration: BoxDecoration(
+        border: isLast
+            ? null
+            : const Border(
+                bottom: BorderSide(color: AppTheme.dividerColor),
+              ),
       ),
       child: Row(
         children: [
@@ -344,12 +460,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: valueColor ?? AppTheme.textPrimary,
+          Flexible(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: valueColor ?? AppTheme.textPrimary,
+              ),
+              textAlign: TextAlign.right,
             ),
           ),
         ],
