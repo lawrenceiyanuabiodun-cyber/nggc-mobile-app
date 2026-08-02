@@ -8,6 +8,7 @@ import '../bible/bible_language_screen.dart';
 import '../lessons/lessons_screen.dart';
 import '../announcements/announcements_screen.dart';
 import '../events/events_screen.dart';
+import '../profile/profile_screen.dart';
 
 // ─────────────────────────────────────────────────────────
 // HomeScreen
@@ -23,13 +24,11 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentIndex = 0;
 
-  // Daily verse state
   String? _dailyVerse;
   String? _dailyVerseRef;
   bool _verseLoading = true;
   bool _verseError = false;
 
-  // Today lesson state
   Map<String, dynamic>? _todayLesson;
   bool _lessonLoading = true;
 
@@ -40,7 +39,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _loadTodayLesson();
   }
 
-  // ── Load Daily Verse ───────────────────────────────────
   Future<void> _loadDailyVerse() async {
     setState(() {
       _verseLoading = true;
@@ -73,7 +71,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  // ── Load Today Lesson ──────────────────────────────────
   Future<void> _loadTodayLesson() async {
     setState(() => _lessonLoading = true);
     try {
@@ -93,7 +90,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  // ── Logout ─────────────────────────────────────────────
   Future<void> _logout() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -132,7 +128,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  // ── Navigate to screen ────────────────────────────────
   void _navigateTo(Widget screen) {
     Navigator.push(
       context,
@@ -159,27 +154,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Header Banner ──────────────────────
               _buildHeaderBanner(user?.firstName ?? 'Member'),
-
               const SizedBox(height: 20),
-
-              // ── Daily Verse Card ───────────────────
               _buildSectionTitle('Daily Verse'),
               _buildDailyVerseCard(),
-
               const SizedBox(height: 20),
-
-              // ── Quick Access Grid ──────────────────
               _buildSectionTitle('Quick Access'),
               _buildFeatureGrid(),
-
               const SizedBox(height: 20),
-
-              // ── Today Lesson ───────────────────────
               _buildSectionTitle("Today's Lesson"),
               _buildTodayLessonCard(),
-
               const SizedBox(height: 8),
             ],
           ),
@@ -189,7 +173,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  // ── AppBar ─────────────────────────────────────────────
   PreferredSizeWidget _buildAppBar(String firstName) {
     return AppBar(
       backgroundColor: AppTheme.primaryBlue,
@@ -228,7 +211,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  // ── Header Banner ──────────────────────────────────────
   Widget _buildHeaderBanner(String firstName) {
     final hour = DateTime.now().hour;
     final greeting = hour < 12
@@ -252,10 +234,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           Text(
             '$greeting,',
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.white70,
-            ),
+            style: const TextStyle(fontSize: 14, color: Colors.white70),
           ),
           const SizedBox(height: 4),
           Text(
@@ -280,7 +259,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  // ── Section Title ──────────────────────────────────────
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
@@ -296,7 +274,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  // ── Daily Verse Card ───────────────────────────────────
   Widget _buildDailyVerseCard() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -333,11 +310,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   children: [
                     const Row(
                       children: [
-                        Icon(
-                          Icons.menu_book_outlined,
-                          color: AppTheme.accentGold,
-                          size: 18,
-                        ),
+                        Icon(Icons.menu_book_outlined,
+                            color: AppTheme.accentGold, size: 18),
                         SizedBox(width: 8),
                         Text(
                           'Verse of the Day',
@@ -399,7 +373,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  // ── Feature Grid (2x2) — ALL NAVIGATION WIRED ─────────
   Widget _buildFeatureGrid() {
     final features = [
       _FeatureItem(
@@ -502,7 +475,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  // ── Today Lesson Card ──────────────────────────────────
   Widget _buildTodayLessonCard() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -563,9 +535,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final quarter = lesson['quarter']?.toString() ?? '';
 
     return InkWell(
-      onTap: () => _navigateTo(
-        LessonsScreen(),
-      ),
+      onTap: () => _navigateTo(const LessonsScreen()),
       borderRadius: BorderRadius.circular(16),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -627,10 +597,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
               ),
             ),
-            const Icon(
-              Icons.chevron_right,
-              color: AppTheme.textHint,
-            ),
+            const Icon(Icons.chevron_right, color: AppTheme.textHint),
           ],
         ),
       ),
@@ -655,7 +622,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  // ── Bottom Nav ─────────────────────────────────────────
   Widget _buildBottomNav() {
     return BottomNavigationBar(
       currentIndex: _currentIndex,
@@ -663,7 +629,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         setState(() => _currentIndex = index);
         if (index == 1) _navigateTo(const BibleLanguageScreen());
         if (index == 2) _navigateTo(const LessonsScreen());
-        if (index == 3) _showComingSoon('Profile');
+        if (index == 3) _navigateTo(const ProfileScreen());
       },
       selectedItemColor: AppTheme.primaryBlue,
       unselectedItemColor: AppTheme.textHint,
@@ -694,21 +660,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ],
     );
   }
-
-  // ── Coming Soon Snackbar ───────────────────────────────
-  void _showComingSoon(String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$feature coming soon!'),
-        backgroundColor: AppTheme.primaryBlue,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
 }
 
 // ── Feature Item Model ─────────────────────────────────
@@ -727,4 +678,3 @@ class _FeatureItem {
     required this.onTap,
   });
 }
-
