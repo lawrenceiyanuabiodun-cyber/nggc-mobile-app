@@ -1,4 +1,4 @@
-plugins {
+﻿plugins {
     id "com.android.application"
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
@@ -25,6 +25,14 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true
+
+        // Support all Android architectures
+        // armeabi-v7a = 32-bit ARM (older phones including Android 7)
+        // arm64-v8a   = 64-bit ARM (modern phones)
+        // x86_64      = emulators
+        ndk {
+            abiFilters "armeabi-v7a", "arm64-v8a", "x86_64"
+        }
     }
 
     buildTypes {
@@ -36,6 +44,18 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        debug {
+            minifyEnabled = false
+            shrinkResources = false
+        }
+    }
+
+    // Split APK by architecture for smaller downloads (optional)
+    // Remove this block if you want one universal APK
+    splits {
+        abi {
+            enable false
         }
     }
 }
