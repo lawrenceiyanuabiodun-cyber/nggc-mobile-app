@@ -1,4 +1,4 @@
-name: nggc
+﻿name: nggc
 description: "New Generation Gospel Church Sunday School App"
 publish_to: 'none'
 version: 1.0.0+1
@@ -49,6 +49,7 @@ dependencies:
 
   # Connectivity detection
   connectivity_plus: ^6.1.0
+  share_plus: ^10.1.4
 
   # Shimmer loading effect
   shimmer: ^3.0.0
@@ -66,9 +67,9 @@ dev_dependencies:
   # App icon generator
   flutter_launcher_icons: ^0.14.1
 
-# ─────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # App Icon Configuration
-# ─────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 flutter_launcher_icons:
   android: "ic_launcher"
   ios: true
