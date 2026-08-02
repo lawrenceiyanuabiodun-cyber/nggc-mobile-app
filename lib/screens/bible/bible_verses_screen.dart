@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../services/bible_loader_service.dart';
+import '../../services/preferences_service.dart';
 import '../../theme/app_theme.dart';
 import 'bible_saved_verses_screen.dart';
 
@@ -49,6 +50,18 @@ class _BibleVersesScreenState extends State<BibleVersesScreen> {
     super.initState();
     _currentChapter = widget.chapter;
     _loadVerses();
+    _loadFontSize();
+  }
+
+  Future<void> _loadFontSize() async {
+    final size = await PreferencesService.getFontSize();
+    if (mounted) setState(() { _fontSize = size; });
+  }
+
+  void _changeFontSize(double delta) {
+    final newSize = (_fontSize + delta).clamp(12.0, 26.0);
+    setState(() => _fontSize = newSize);
+    PreferencesService.setFontSize(newSize);
   }
 
   @override
@@ -237,13 +250,11 @@ class _BibleVersesScreenState extends State<BibleVersesScreen> {
           // Font size controls
           IconButton(
             icon: const Icon(Icons.text_decrease, size: 20),
-            onPressed: () =>
-                setState(() => _fontSize = (_fontSize - 2).clamp(12, 26)),
+            onPressed: () => _changeFontSize(-2),
           ),
           IconButton(
             icon: const Icon(Icons.text_increase, size: 20),
-            onPressed: () =>
-                setState(() => _fontSize = (_fontSize + 2).clamp(12, 26)),
+            onPressed: () => _changeFontSize(2),
           ),
         ],
       ),
@@ -528,3 +539,6 @@ class _BibleVersesScreenState extends State<BibleVersesScreen> {
     );
   }
 }
+
+
+

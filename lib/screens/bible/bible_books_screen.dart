@@ -3,6 +3,7 @@
 import '../../services/bible_loader_service.dart';
 import '../../theme/app_theme.dart';
 import 'bible_chapters_screen.dart';
+import 'bible_search_screen.dart';
 
 // ─────────────────────────────────────────────────────────
 // BibleBooksScreen
@@ -24,8 +25,6 @@ class _BibleBooksScreenState extends State<BibleBooksScreen> {
   bool _loading = true;
   final _searchController = TextEditingController();
 
-  // KJV canonical order — 39 OT + 27 NT
-  // Used to split books into two sections
   static const int _oldTestamentCount = 39;
 
   @override
@@ -72,6 +71,18 @@ class _BibleBooksScreenState extends State<BibleBooksScreen> {
         backgroundColor: AppTheme.primaryBlue,
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            tooltip: 'Deep Search',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => BibleSearchScreen(language: widget.language),
+              ),
+            ),
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(60),
           child: Padding(
@@ -80,9 +91,9 @@ class _BibleBooksScreenState extends State<BibleBooksScreen> {
               controller: _searchController,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: 'Search book...',
+                hintText: 'Filter books...',
                 hintStyle: const TextStyle(color: Colors.white54),
-                prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                prefixIcon: const Icon(Icons.filter_list, color: Colors.white54),
                 filled: true,
                 fillColor: Colors.white.withOpacity(0.15),
                 contentPadding: const EdgeInsets.symmetric(
@@ -117,9 +128,7 @@ class _BibleBooksScreenState extends State<BibleBooksScreen> {
     );
   }
 
-  // ── Book List ──────────────────────────────────────────
   Widget _buildBookList() {
-    // If searching — show flat list
     if (_searchController.text.isNotEmpty) {
       return ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -130,7 +139,6 @@ class _BibleBooksScreenState extends State<BibleBooksScreen> {
       );
     }
 
-    // Not searching — group into OT and NT
     final ot = _books.length >= _oldTestamentCount
         ? _books.sublist(0, _oldTestamentCount)
         : _books;
@@ -141,7 +149,6 @@ class _BibleBooksScreenState extends State<BibleBooksScreen> {
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
-        // ── Old Testament ──────────────────────────
         _buildSectionHeader(
           'Old Testament',
           '${ot.length} Books',
@@ -150,10 +157,7 @@ class _BibleBooksScreenState extends State<BibleBooksScreen> {
         ...ot.asMap().entries.map(
               (e) => _buildBookTile(e.value, e.key + 1),
             ),
-
         const SizedBox(height: 8),
-
-        // ── New Testament ──────────────────────────
         if (nt.isNotEmpty) ...[
           _buildSectionHeader(
             'New Testament',
@@ -168,7 +172,6 @@ class _BibleBooksScreenState extends State<BibleBooksScreen> {
     );
   }
 
-  // ── Section Header ─────────────────────────────────────
   Widget _buildSectionHeader(String title, String subtitle, Color color) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
@@ -205,7 +208,6 @@ class _BibleBooksScreenState extends State<BibleBooksScreen> {
     );
   }
 
-  // ── Book Tile ──────────────────────────────────────────
   Widget _buildBookTile(String bookName, int bookNumber) {
     final isOT = bookNumber <= _oldTestamentCount;
     final color = isOT
@@ -234,7 +236,6 @@ class _BibleBooksScreenState extends State<BibleBooksScreen> {
         ),
         child: Row(
           children: [
-            // Book number badge
             Container(
               width: 36,
               height: 36,
@@ -254,7 +255,6 @@ class _BibleBooksScreenState extends State<BibleBooksScreen> {
               ),
             ),
             const SizedBox(width: 14),
-            // Book name
             Expanded(
               child: Text(
                 bookName,
@@ -276,7 +276,6 @@ class _BibleBooksScreenState extends State<BibleBooksScreen> {
     );
   }
 
-  // ── Empty State ────────────────────────────────────────
   Widget _buildEmpty() {
     return Center(
       child: Column(
