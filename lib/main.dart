@@ -5,6 +5,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'config/app_config.dart';
+import 'services/notification_service.dart';
 import 'providers/auth_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
@@ -29,6 +30,7 @@ void main() async {
   final appDocDir = await getApplicationDocumentsDirectory();
   await Hive.initFlutter(appDocDir.path);
   await Hive.openBox(AppConfig.settingsBoxName);
+  await NotificationService.initialize();
 
   runApp(
     const ProviderScope(
@@ -348,4 +350,5 @@ class _LiaLogoPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
 

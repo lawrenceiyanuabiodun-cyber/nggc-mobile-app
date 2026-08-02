@@ -2,6 +2,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../services/notification_service.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import '../bible/bible_language_screen.dart';
@@ -53,9 +54,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           _dailyVerse = data['text']?.toString() ??
               data['verse_text']?.toString() ?? '';
           _dailyVerseRef =
-              '${data['book'] ?? data['book_name'] ?? ''} ${data['chapter'] ?? ''}:${data['verse'] ?? ''}';
+              ' :';
           _verseLoading = false;
         });
+
+        // Show daily verse notification
+        if (_dailyVerse != null && _dailyVerse!.isNotEmpty) {
+          await NotificationService.showDailyVerseNotification(
+            verse: _dailyVerse!,
+            reference: _dailyVerseRef ?? '',
+          );
+        }
       } else {
         setState(() {
           _verseLoading = false;
@@ -678,3 +687,4 @@ class _FeatureItem {
     required this.onTap,
   });
 }
+
