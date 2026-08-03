@@ -31,21 +31,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<void> _loadAppVersion() async {
     try {
       final info = await PackageInfo.fromPlatform();
-      if (mounted) setState(() => _appVersion = "v${info.version}");
+      if (mounted) setState(() => _appVersion = 'v${info.version}');
     } catch (_) {
       setState(() => _appVersion = 'v1.0.0');
     }
   }
 
   Future<void> _logout() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Sign Out',
-            style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
-        content: const Text('Are you sure you want to sign out?',
-            style: TextStyle(color: Color(0xFF6B7280))),
+        title: Text('Sign Out',
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : const Color(0xFF1A237E))),
+        content: Text('Are you sure you want to sign out?',
+            style: TextStyle(
+                color: isDark ? Colors.white70 : const Color(0xFF6B7280))),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -54,7 +59,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFFC62828), foregroundColor: Colors.white),
+                backgroundColor: const Color(0xFFC62828),
+                foregroundColor: Colors.white),
             child: const Text('Sign Out'),
           ),
         ],
@@ -74,9 +80,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final user = ref.watch(currentUserProvider);
     final themeMode = ref.watch(themeProvider);
     final isDark = themeMode == ThemeMode.dark;
+    final bgColor = isDark ? const Color(0xFF0F0F1E) : AppTheme.surfaceLight;
 
     return Scaffold(
-      backgroundColor: AppTheme.surfaceLight,
+      backgroundColor: bgColor,
       appBar: AppBar(
         title: const Text('My Profile'),
         backgroundColor: AppTheme.primaryBlue,
@@ -152,11 +159,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               _buildInfoTile(
                   icon: Icons.person_outline,
                   label: 'Full Name',
-                  value: user?.fullName ?? 'â€”'),
+                  value: user?.fullName ?? '-'),
               _buildInfoTile(
                   icon: Icons.phone_outlined,
                   label: 'Phone Number',
-                  value: user?.phone ?? 'â€”'),
+                  value: user?.phone ?? '-'),
               _buildInfoTile(
                 icon: Icons.shield_outlined,
                 label: 'Role',
@@ -250,7 +257,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const SizedBox(height: 14),
           Text(fullName,
               style: const TextStyle(
-                  fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white)),
           const SizedBox(height: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
@@ -260,11 +269,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   : Colors.white.withOpacity(0.15),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isAdmin ? AppTheme.accentGold : Colors.white.withOpacity(0.3),
+                color:
+                    isAdmin ? AppTheme.accentGold : Colors.white.withOpacity(0.3),
               ),
             ),
             child: Text(
-              isAdmin ? 'â­ Administrator' : 'Member',
+              isAdmin ? 'Administrator' : 'Member',
               style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -277,26 +287,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Widget _buildSection({required String title, required List<Widget> children}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
           child: Text(title.toUpperCase(),
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.textHint,
+                  color: isDark ? Colors.white54 : AppTheme.textHint,
                   letterSpacing: 1.2)),
         ),
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cardColor,
             borderRadius: BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.04),
                   blurRadius: 8,
                   offset: const Offset(0, 2))
             ],
@@ -315,6 +328,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     required VoidCallback onTap,
     bool isLast = false,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dividerColor =
+        isDark ? Colors.white12 : AppTheme.dividerColor;
+
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -322,7 +339,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         decoration: BoxDecoration(
           border: isLast
               ? null
-              : const Border(bottom: BorderSide(color: AppTheme.dividerColor)),
+              : Border(bottom: BorderSide(color: dividerColor)),
         ),
         child: Row(
           children: [
@@ -330,7 +347,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withOpacity(isDark ? 0.2 : 0.1),
                   borderRadius: BorderRadius.circular(8)),
               child: Icon(icon, size: 18, color: color),
             ),
@@ -340,17 +357,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(label,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary)),
+                          color: isDark
+                              ? Colors.white
+                              : AppTheme.textPrimary)),
                   Text(subtitle,
-                      style: const TextStyle(
-                          fontSize: 11, color: AppTheme.textHint)),
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: isDark
+                              ? Colors.white54
+                              : AppTheme.textHint)),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: AppTheme.textHint, size: 18),
+            Icon(Icons.chevron_right,
+                color: isDark ? Colors.white38 : AppTheme.textHint, size: 18),
           ],
         ),
       ),
@@ -366,12 +389,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     required ValueChanged<bool> onChanged,
     bool isLast = false,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dividerColor =
+        isDark ? Colors.white12 : AppTheme.dividerColor;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         border: isLast
             ? null
-            : const Border(bottom: BorderSide(color: AppTheme.dividerColor)),
+            : Border(bottom: BorderSide(color: dividerColor)),
       ),
       child: Row(
         children: [
@@ -379,7 +406,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withOpacity(isDark ? 0.2 : 0.1),
                 borderRadius: BorderRadius.circular(8)),
             child: Icon(icon, size: 18, color: color),
           ),
@@ -389,17 +416,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary)),
+                        color: isDark
+                            ? Colors.white
+                            : AppTheme.textPrimary)),
                 Text(subtitle,
-                    style: const TextStyle(
-                        fontSize: 11, color: AppTheme.textHint)),
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: isDark
+                            ? Colors.white54
+                            : AppTheme.textHint)),
               ],
             ),
           ),
-          Switch(value: value, onChanged: onChanged, activeColor: AppTheme.primaryBlue),
+          Switch(
+              value: value,
+              onChanged: onChanged,
+              activeColor: AppTheme.accentGold),
         ],
       ),
     );
@@ -412,28 +447,38 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     Color? valueColor,
     bool isLast = false,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dividerColor =
+        isDark ? Colors.white12 : AppTheme.dividerColor;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         border: isLast
             ? null
-            : const Border(bottom: BorderSide(color: AppTheme.dividerColor)),
+            : Border(bottom: BorderSide(color: dividerColor)),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: AppTheme.primaryBlue),
+          Icon(icon,
+              size: 20,
+              color: isDark ? Colors.white70 : AppTheme.primaryBlue),
           const SizedBox(width: 12),
           Expanded(
             child: Text(label,
-                style: const TextStyle(
-                    fontSize: 13, color: AppTheme.textSecondary)),
+                style: TextStyle(
+                    fontSize: 13,
+                    color: isDark
+                        ? Colors.white60
+                        : AppTheme.textSecondary)),
           ),
           Flexible(
             child: Text(value,
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: valueColor ?? AppTheme.textPrimary),
+                    color: valueColor ??
+                        (isDark ? Colors.white : AppTheme.textPrimary)),
                 textAlign: TextAlign.right),
           ),
         ],
@@ -446,4 +491,3 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return s[0].toUpperCase() + s.substring(1);
   }
 }
-
