@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -86,6 +86,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _verseLoading = false;
       _verseError = false;
     });
+  }
+
+  void _shareDailyVerse() {
+    if (_dailyVerse == null || _dailyVerse!.isEmpty) return;
+    final ref = _dailyVerseRef ?? '';
+    Share.share(
+      '"${_dailyVerse!}"\n\n- $ref\n\nShared from NGGC Sunday School App',
+      subject: 'Verse of the Day',
+    );
   }
 
   Future<void> _loadTodayLesson() async {
