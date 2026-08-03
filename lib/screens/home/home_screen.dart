@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -16,6 +16,7 @@ import '../profile/profile_screen.dart';
 // ─────────────────────────────────────────────────────────
 // HomeScreen
 // Main dashboard — shows Admin tab if user is admin
+// Dark mode responsive
 // ─────────────────────────────────────────────────────────
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -45,7 +46,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _loadDailyVerse() async {
     setState(() { _verseLoading = true; _verseError = false; });
 
-    // Try API first
     try {
       final response = await ApiService.get('/verses/daily');
       if (!mounted) return;
@@ -62,13 +62,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
     } catch (_) {}
 
-    // Fallback: use a random verse from offline Bible
     if (!mounted) return;
     _loadOfflineVerse();
   }
 
   void _loadOfflineVerse() {
-    // Curated inspirational verses (offline fallback)
     final fallbackVerses = [
       {'text': 'For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.', 'ref': 'John 3:16'},
       {'text': 'I can do all things through Christ which strengtheneth me.', 'ref': 'Philippians 4:13'},
@@ -98,7 +96,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _loadTodayLesson() async {
-    // Offline-first: show cache immediately
     final cached = CacheService.getTodayLesson();
     if (cached != null) {
       setState(() { _todayLesson = cached; _lessonLoading = false; });
@@ -106,7 +103,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       setState(() => _lessonLoading = true);
     }
 
-    // Try to refresh from API
     try {
       final response = await ApiService.get('/today');
       if (!mounted) return;
@@ -117,12 +113,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
     } catch (_) {}
 
-    // API failed - fallback to any cached lessons
     if (!mounted) return;
     if (_todayLesson == null) {
       final allCached = CacheService.getLessons();
       if (allCached != null && allCached.isNotEmpty) {
-        // Pick lesson based on today's date
         final day = DateTime.now().day;
         final lesson = allCached[day % allCached.length];
         if (lesson is Map<String, dynamic>) {
@@ -135,14 +129,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _logout() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Sign Out',
-            style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
-        content: const Text('Are you sure you want to sign out?',
-            style: TextStyle(color: AppTheme.textSecondary)),
+        title: Text('Sign Out',
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : AppTheme.primaryBlue)),
+        content: Text('Are you sure you want to sign out?',
+            style: TextStyle(
+                color: isDark ? Colors.white70 : AppTheme.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -169,9 +168,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
     final isAdmin = user?.isAdmin ?? false;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF0F0F1E) : AppTheme.surfaceLight;
 
     return Scaffold(
-      backgroundColor: AppTheme.surfaceLight,
+      backgroundColor: bgColor,
       appBar: _buildAppBar(user?.firstName ?? 'Member'),
       body: RefreshIndicator(
         color: AppTheme.primaryBlue,
@@ -279,7 +280,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     border: Border.all(color: AppTheme.accentGold),
                   ),
                   child: const Text(
-                    '⭐ Admin',
+                    'Admin',
                     style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
@@ -295,13 +296,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildSectionTitle(String title) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
       child: Text(title,
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w700,
-              color: AppTheme.textPrimary,
+              color: isDark ? Colors.white : AppTheme.textPrimary,
               letterSpacing: 0.3)),
     );
   }
@@ -376,7 +378,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       const SizedBox(height: 10),
                       Align(
                         alignment: Alignment.centerRight,
-                        child: Text('— $_dailyVerseRef',
+                        child: Text('- $_dailyVerseRef',
                             style: const TextStyle(
                                 fontSize: 12,
                                 color: AppTheme.accentGold,
@@ -452,15 +454,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildFeatureCard(_FeatureItem item) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+
     return GestureDetector(
       onTap: item.onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardColor,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: item.color.withOpacity(0.12),
+              color: item.color.withOpacity(isDark ? 0.25 : 0.12),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -475,7 +480,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: item.color.withOpacity(0.1),
+                color: item.color.withOpacity(isDark ? 0.2 : 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(item.icon, color: item.color, size: 24),
@@ -487,11 +492,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
-                        color: item.color)),
+                        color: isDark ? Colors.white : item.color)),
                 const SizedBox(height: 2),
                 Text(item.subtitle,
-                    style: const TextStyle(
-                        fontSize: 11, color: AppTheme.textSecondary)),
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: isDark
+                            ? Colors.white60
+                            : AppTheme.textSecondary)),
               ],
             ),
           ],
@@ -501,14 +509,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildTodayLessonCard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -528,17 +539,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildNoLesson() {
-    return const Padding(
-      padding: EdgeInsets.all(24),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.all(24),
       child: Row(
         children: [
-          Icon(Icons.info_outline, color: AppTheme.textHint, size: 20),
-          SizedBox(width: 12),
+          Icon(Icons.info_outline,
+              color: isDark ? Colors.white38 : AppTheme.textHint, size: 20),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
               'No lesson scheduled for today.\nCheck back tomorrow!',
               style: TextStyle(
-                  color: AppTheme.textSecondary, fontSize: 13, height: 1.5),
+                  color: isDark ? Colors.white70 : AppTheme.textSecondary,
+                  fontSize: 13,
+                  height: 1.5),
             ),
           ),
         ],
@@ -547,6 +562,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildLessonContent(Map<String, dynamic> lesson) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final title = lesson['title']?.toString() ??
         lesson['lesson_title']?.toString() ?? "Today's Lesson";
     final topic = lesson['topic']?.toString() ?? '';
@@ -564,7 +580,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               width: 50,
               height: 50,
               decoration: BoxDecoration(
-                color: AppTheme.primaryBlue.withOpacity(0.1),
+                color: AppTheme.primaryBlue.withOpacity(isDark ? 0.25 : 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(Icons.school,
@@ -576,17 +592,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimary),
+                          color: isDark ? Colors.white : AppTheme.textPrimary),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis),
                   if (topic.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(topic,
-                        style: const TextStyle(
-                            fontSize: 12, color: AppTheme.textSecondary),
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: isDark
+                                ? Colors.white60
+                                : AppTheme.textSecondary),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                   ],
@@ -606,7 +625,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: AppTheme.textHint),
+            Icon(Icons.chevron_right,
+                color: isDark ? Colors.white38 : AppTheme.textHint),
           ],
         ),
       ),
@@ -617,7 +637,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withOpacity(0.15),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(label,
@@ -626,8 +646,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  // ── Bottom Nav — shows Admin tab for admins ────────────
   Widget _buildBottomNav(bool isAdmin) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final items = <BottomNavigationBarItem>[
       const BottomNavigationBarItem(
         icon: Icon(Icons.home_outlined),
@@ -658,6 +678,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ];
 
     return BottomNavigationBar(
+      backgroundColor: isDark ? const Color(0xFF12122A) : Colors.white,
       currentIndex: _currentIndex.clamp(0, items.length - 1),
       onTap: (index) {
         setState(() => _currentIndex = index);
@@ -666,8 +687,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         if (index == 3) _navigateTo(const ProfileScreen());
         if (index == 4 && isAdmin) _navigateTo(const AdminDashboardScreen());
       },
-      selectedItemColor: AppTheme.primaryBlue,
-      unselectedItemColor: AppTheme.textHint,
+      selectedItemColor: isDark ? AppTheme.accentGold : AppTheme.primaryBlue,
+      unselectedItemColor: isDark ? Colors.white38 : AppTheme.textHint,
       showUnselectedLabels: true,
       type: BottomNavigationBarType.fixed,
       elevation: 10,
@@ -676,7 +697,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-// ── Feature Item Model ─────────────────────────────────
 class _FeatureItem {
   final IconData icon;
   final String label;
@@ -692,6 +712,3 @@ class _FeatureItem {
     required this.onTap,
   });
 }
-
-
-
