@@ -1,0 +1,16 @@
+﻿name: Keep Render Alive
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping NGGC API
+        run: |
+          echo "Pinging NGGC API to prevent Render sleep..."
+          curl -s -o /dev/null -w "HTTP Status: %{http_code}" https://nggc-api.onrender.com/health || true
+          echo " — Done"

@@ -11,6 +11,7 @@ import 'lesson_detail_screen.dart';
 // LessonsScreen
 // Lists all lessons from /lessons/ API
 // Shows shimmer while loading
+// Offline-first: shows cache instantly, fetches fresh if expired
 // ─────────────────────────────────────────────────────────
 class LessonsScreen extends StatefulWidget {
   const LessonsScreen({super.key});
@@ -77,7 +78,7 @@ class _LessonsScreenState extends State<LessonsScreen>
       _error = null;
     });
 
-    // Show cached data instantly while fetching fresh
+    // ── STEP 1: Show cache instantly ──────────────────────
     final cached = CacheService.getLessons();
     if (cached != null && cached.isNotEmpty) {
       setState(() {
@@ -85,37 +86,48 @@ class _LessonsScreenState extends State<LessonsScreen>
         _applyFilter();
         _isLoading = false;
       });
+
+      // Cache is fresh — no need to hit API
+      if (!CacheService.isLessonsExpired()) return;
     }
 
-    // Always fetch fresh from API unless cache is valid
-    if (cached != null && !CacheService.isLessonsExpired()) return;
-
+    // ── STEP 2: Fetch fresh from API ──────────────────────
     final response = await ApiService.get('/lessons/');
 
     if (!mounted) return;
 
     if (response.isSuccess) {
       final list = response.asList ?? [];
-      await CacheService.saveLessons(list);
-      setState(() {
-        _allLessons = list;
-        _applyFilter();
-        _isLoading = false;
-      });
-    } else {
-      if (_allLessons.isEmpty) {
+      if (list.isNotEmpty) {
+        await CacheService.saveLessons(list);
         setState(() {
-          _error = response.error ?? 'Failed to load lessons';
+          _allLessons = list;
+          _applyFilter();
           _isLoading = false;
         });
+      }
+    } else {
+      // API failed — if we already have cached data just stay on it silently
+      if (_allLessons.isEmpty) {
+        setState(() {
+          _error = 'You are offline and no lessons are cached yet.\n'
+              'Please connect to the internet once to load lessons.';
+          _isLoading = false;
+        });
+      } else {
+        // Already showing cached data — just stop loading quietly
+        setState(() => _isLoading = false);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF0F0F1E) : AppTheme.surfaceLight;
+
     return Scaffold(
-      backgroundColor: AppTheme.surfaceLight,
+      backgroundColor: bgColor,
       appBar: AppBar(
         title: const Text('Sunday School Lessons'),
         backgroundColor: AppTheme.primaryBlue,
@@ -169,6 +181,9 @@ class _LessonsScreenState extends State<LessonsScreen>
   }
 
   Widget _buildLessonCard(Map<String, dynamic> lesson, int index) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+
     final String title = lesson['title']?.toString() ?? 'Untitled Lesson';
     final String topic = lesson['topic']?.toString() ?? '';
     final String lang = lesson['language']?.toString() ?? 'english';
@@ -179,6 +194,7 @@ class _LessonsScreenState extends State<LessonsScreen>
 
     return Card(
       elevation: 2,
+      color: cardColor,
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -224,7 +240,7 @@ class _LessonsScreenState extends State<LessonsScreen>
                           size: 22,
                         )
                       : Text(
-                          "${index + 1}",
+                          '${index + 1}',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
@@ -243,10 +259,10 @@ class _LessonsScreenState extends State<LessonsScreen>
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
+                        color: isDark ? Colors.white : AppTheme.textPrimary,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -255,9 +271,11 @@ class _LessonsScreenState extends State<LessonsScreen>
                       const SizedBox(height: 3),
                       Text(
                         topic,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppTheme.textSecondary,
+                          color: isDark
+                              ? Colors.white60
+                              : AppTheme.textSecondary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -281,9 +299,9 @@ class _LessonsScreenState extends State<LessonsScreen>
                   ],
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right,
-                color: AppTheme.textHint,
+                color: isDark ? Colors.white38 : AppTheme.textHint,
                 size: 20,
               ),
             ],
@@ -312,6 +330,7 @@ class _LessonsScreenState extends State<LessonsScreen>
   }
 
   Widget _buildEmpty() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -319,17 +338,19 @@ class _LessonsScreenState extends State<LessonsScreen>
           Icon(
             Icons.school_outlined,
             size: 56,
-            color: AppTheme.textHint.withOpacity(0.5),
+            color: isDark
+                ? Colors.white24
+                : AppTheme.textHint.withOpacity(0.5),
           ),
           const SizedBox(height: 16),
           Text(
             _selectedLang == 'all'
                 ? 'No lessons available yet'
                 : 'No ${_selectedLang[0].toUpperCase()}${_selectedLang.substring(1)} lessons yet',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: AppTheme.textSecondary,
+              color: isDark ? Colors.white60 : AppTheme.textSecondary,
             ),
           ),
         ],
@@ -338,32 +359,33 @@ class _LessonsScreenState extends State<LessonsScreen>
   }
 
   Widget _buildError() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.wifi_off_outlined,
               size: 56,
-              color: AppTheme.textHint,
+              color: isDark ? Colors.white38 : AppTheme.textHint,
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Could not load lessons',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
+                color: isDark ? Colors.white : AppTheme.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               _error!,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
-                color: AppTheme.textSecondary,
+                color: isDark ? Colors.white60 : AppTheme.textSecondary,
               ),
               textAlign: TextAlign.center,
             ),
@@ -388,8 +410,3 @@ class _LessonsScreenState extends State<LessonsScreen>
     );
   }
 }
-
-
-
-
-
