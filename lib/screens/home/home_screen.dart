@@ -1,8 +1,10 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
+import '../../services/cache_service.dart';
 import '../../theme/app_theme.dart';
 import '../admin/admin_dashboard_screen.dart';
 import '../announcements/announcements_screen.dart';
@@ -42,6 +44,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _loadDailyVerse() async {
     setState(() { _verseLoading = true; _verseError = false; });
+
+    // Try API first
     try {
       final response = await ApiService.get('/verses/daily');
       if (!mounted) return;
@@ -54,27 +58,69 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               '${data['book'] ?? data['book_name'] ?? ''} ${data['chapter'] ?? ''}:${data['verse'] ?? ''}';
           _verseLoading = false;
         });
-      } else {
-        setState(() { _verseLoading = false; _verseError = true; });
+        return;
       }
-    } catch (_) {
-      if (!mounted) return;
-      setState(() { _verseLoading = false; _verseError = true; });
-    }
+    } catch (_) {}
+
+    // Fallback: use a random verse from offline Bible
+    if (!mounted) return;
+    _loadOfflineVerse();
+  }
+
+  void _loadOfflineVerse() {
+    // Curated inspirational verses (offline fallback)
+    final fallbackVerses = [
+      {'text': 'For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.', 'ref': 'John 3:16'},
+      {'text': 'I can do all things through Christ which strengtheneth me.', 'ref': 'Philippians 4:13'},
+      {'text': 'The Lord is my shepherd; I shall not want.', 'ref': 'Psalm 23:1'},
+      {'text': 'Trust in the Lord with all thine heart; and lean not unto thine own understanding.', 'ref': 'Proverbs 3:5'},
+      {'text': 'And we know that all things work together for good to them that love God.', 'ref': 'Romans 8:28'},
+      {'text': 'Be strong and of a good courage; be not afraid, neither be thou dismayed: for the Lord thy God is with thee whithersoever thou goest.', 'ref': 'Joshua 1:9'},
+      {'text': 'Come unto me, all ye that labour and are heavy laden, and I will give you rest.', 'ref': 'Matthew 11:28'},
+    ];
+    final day = DateTime.now().day;
+    final v = fallbackVerses[day % fallbackVerses.length];
+    setState(() {
+      _dailyVerse = v['text'];
+      _dailyVerseRef = v['ref'];
+      _verseLoading = false;
+      _verseError = false;
+    });
   }
 
   Future<void> _loadTodayLesson() async {
-    setState(() => _lessonLoading = true);
+    // Offline-first: show cache immediately
+    final cached = CacheService.getTodayLesson();
+    if (cached != null) {
+      setState(() { _todayLesson = cached; _lessonLoading = false; });
+    } else {
+      setState(() => _lessonLoading = true);
+    }
+
+    // Try to refresh from API
     try {
       final response = await ApiService.get('/today');
       if (!mounted) return;
       if (response.isSuccess && response.asMap != null) {
+        await CacheService.saveTodayLesson(response.asMap!);
         setState(() { _todayLesson = response.asMap; _lessonLoading = false; });
-      } else {
-        setState(() => _lessonLoading = false);
+        return;
       }
-    } catch (_) {
-      if (!mounted) return;
+    } catch (_) {}
+
+    // API failed - fallback to any cached lessons
+    if (!mounted) return;
+    if (_todayLesson == null) {
+      final allCached = CacheService.getLessons();
+      if (allCached != null && allCached.isNotEmpty) {
+        // Pick lesson based on today's date
+        final day = DateTime.now().day;
+        final lesson = allCached[day % allCached.length];
+        if (lesson is Map<String, dynamic>) {
+          setState(() { _todayLesson = lesson; _lessonLoading = false; });
+          return;
+        }
+      }
       setState(() => _lessonLoading = false);
     }
   }
@@ -282,17 +328,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.menu_book_outlined,
+                        const Icon(Icons.menu_book_outlined,
                             color: AppTheme.accentGold, size: 18),
-                        SizedBox(width: 8),
-                        Text('Verse of the Day',
+                        const SizedBox(width: 8),
+                        const Text('Verse of the Day',
                             style: TextStyle(
                                 fontSize: 12,
                                 color: AppTheme.accentGold,
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 1)),
+                        const Spacer(),
+                        InkWell(
+                          onTap: _shareDailyVerse,
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: AppTheme.accentGold.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Icon(Icons.share,
+                                color: AppTheme.accentGold, size: 16),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -623,3 +683,5 @@ class _FeatureItem {
     required this.onTap,
   });
 }
+
+

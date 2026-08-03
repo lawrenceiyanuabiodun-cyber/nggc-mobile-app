@@ -17,7 +17,7 @@ class BibleLoaderService {
 
   // Flag stored in SharedPreferences so we don't reload every time
   // Bumped to v2 to force reload after fixing parser bug
-  static const String _loadedFlag = 'bibles_loaded_v2';
+  static const String _loadedFlag = 'bibles_loaded_v3';
 
   // Standard 66-book English Bible name map (matches KJV book numbers 1-66)
   static const List<String> _englishBookNames = [
@@ -276,3 +276,5 @@ class BibleLoaderService {
     return verses[verse];
   }
 }
+
+

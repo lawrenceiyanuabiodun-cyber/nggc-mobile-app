@@ -92,18 +92,39 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   }
 
   // ── Track reading progress ─────────────────────────────
+  // Mark 50% on open (started), 100% only when explicitly completed
   Future<void> _trackProgress() async {
     // Save locally first (works offline)
-    await ProgressCacheService.markCompleted(widget.lessonId);
+    await ProgressCacheService.saveProgress(widget.lessonId, 50);
     // Then sync with API
-    await ApiService.post(
-      '/progress/',
-      body: {
-        'lesson_id': widget.lessonId,
-        'progress_percentage': 100,
-        'is_completed': true,
-      },
-    );
+    try {
+      await ApiService.post(
+        '/progress/',
+        body: {
+          'lesson_id': widget.lessonId,
+          'progress_percentage': 50,
+          'is_completed': false,
+        },
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _markAsComplete() async {
+    await ProgressCacheService.saveProgress(widget.lessonId, 100);
+    try {
+      await ApiService.post(
+        '/progress/',
+        body: {
+          'lesson_id': widget.lessonId,
+          'progress_percentage': 100,
+          'is_completed': true,
+        },
+      );
+    } catch (_) {}
+    if (mounted) {
+      _showSnack('Lesson marked as complete ✓', AppTheme.successGreen);
+      setState(() {});
+    }
   }
 
   // ── Toggle favorite ────────────────────────────────────
@@ -624,6 +645,43 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 20),
+                if (!ProgressCacheService.isCompleted(widget.lessonId))
+                  ElevatedButton.icon(
+                    onPressed: _markAsComplete,
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: const Text('Mark as Complete'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.successGreen,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(220, 44),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.successGreen.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: AppTheme.successGreen),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle, color: AppTheme.successGreen, size: 18),
+                        SizedBox(width: 8),
+                        Text('Completed',
+                          style: TextStyle(
+                            color: AppTheme.successGreen,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
@@ -650,4 +708,5 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     );
   }
 }
+
 

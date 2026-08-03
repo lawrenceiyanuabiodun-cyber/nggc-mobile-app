@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'config/app_config.dart';
 import 'providers/auth_provider.dart';
+import 'providers/theme_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
@@ -55,7 +56,7 @@ class NGGCApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: ref.watch(themeProvider),
       home: const AppRouter(),
     );
   }
@@ -336,4 +337,6 @@ class _LiaLogoPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
+
 

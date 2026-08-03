@@ -262,6 +262,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             _buildLabel('First Name'),
             const SizedBox(height: 6),
             TextFormField(
+              style: const TextStyle(color: AppTheme.textPrimary, fontSize: 15),
               controller: _firstNameController,
               enabled: !isLoading,
               textCapitalization: TextCapitalization.words,
@@ -291,6 +292,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               _buildLabel('Last Name'),
               const SizedBox(height: 6),
               TextFormField(
+                style: const TextStyle(color: AppTheme.textPrimary, fontSize: 15),
                 controller: _lastNameController,
                 enabled: !isLoading,
                 textCapitalization: TextCapitalization.words,
@@ -314,6 +316,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             _buildLabel('Phone Number'),
             const SizedBox(height: 6),
             TextFormField(
+              style: const TextStyle(color: AppTheme.textPrimary, fontSize: 15),
               controller: _phoneController,
               enabled: !isLoading,
               keyboardType: TextInputType.phone,
@@ -343,6 +346,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             _buildLabel(_isRegisterMode ? 'Create PIN (4 digits)' : 'PIN'),
             const SizedBox(height: 6),
             TextFormField(
+              style: const TextStyle(color: AppTheme.textPrimary, fontSize: 15, letterSpacing: 4),
               controller: _pinController,
               enabled: !isLoading,
               obscureText: _obscurePin,
@@ -574,3 +578,5 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     );
   }
 }
+
+
