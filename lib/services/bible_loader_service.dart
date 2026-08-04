@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,9 +15,11 @@ class BibleLoaderService {
   static const String _englishBoxName = 'bible_english';
   static const String _yorubaBoxName = 'bible_yoruba';
 
-  // Flag stored in SharedPreferences so we don't reload every time
-  // Bumped to v2 to force reload after fixing parser bug
-  static const String _loadedFlag = 'bibles_loaded_v3';
+  // Bumped to v4 to force reload with correct book order fix
+  static const String _loadedFlag = 'bibles_loaded_v4';
+
+  // Special key used to store Yoruba book order inside the Hive box
+  static const String _yorubaOrderKey = '__book_order__';
 
   // Standard 66-book English Bible name map (matches KJV book numbers 1-66)
   static const List<String> _englishBookNames = [
@@ -44,13 +46,13 @@ class BibleLoaderService {
     final alreadyLoaded = prefs.getBool(_loadedFlag) ?? false;
 
     if (alreadyLoaded) {
-      // Bibles already in Hive → open the boxes and return
+      // Bibles already in Hive — open the boxes and return
       await Hive.openBox(_englishBoxName);
       await Hive.openBox(_yorubaBoxName);
       return true;
     }
 
-    // First launch → load from JSON assets into Hive
+    // First launch or version bump — load from JSON assets into Hive
     try {
       await _loadEnglishBible();
       await _loadYorubaBible();
@@ -144,6 +146,7 @@ class BibleLoaderService {
   ///     ]
   ///   }
   /// ]
+  /// Saves __book_order__ key so getBooks() returns correct order.
   /// ─────────────────────────────────────────────────────────
   static Future<void> _loadYorubaBible() async {
     final jsonString = await rootBundle.loadString(
@@ -185,10 +188,13 @@ class BibleLoaderService {
           await box.put(book, data);
         }
       }
+
+      // Save the book order list so getBooks() can restore it correctly
+      await box.put(_yorubaOrderKey, bookOrder);
     }
 
     // ignore: avoid_print
-    print('✅ Yoruba Bible loaded: ${box.length} books');
+    print('✅ Yoruba Bible loaded: ${box.length - 1} books');
   }
 
   /// Helper: Add one Yoruba verse to the grouped structure
@@ -217,12 +223,31 @@ class BibleLoaderService {
   /// Public Read API
   /// ─────────────────────────────────────────────────────────
 
-  /// Get all books for a language
+  /// Get all books for a language in correct Biblical order
   static List<String> getBooks(String language) {
-    final boxName = language == 'yoruba' ? _yorubaBoxName : _englishBoxName;
-    if (!Hive.isBoxOpen(boxName)) return [];
-    final box = Hive.box(boxName);
-    return box.keys.cast<String>().toList();
+    if (language == 'yoruba') {
+      // Yoruba: read the saved order list from Hive
+      if (!Hive.isBoxOpen(_yorubaBoxName)) return [];
+      final box = Hive.box(_yorubaBoxName);
+      final orderRaw = box.get(_yorubaOrderKey);
+      if (orderRaw is List) {
+        return orderRaw.cast<String>().toList();
+      }
+      // Fallback: return all keys except the order key
+      return box.keys
+          .cast<String>()
+          .where((k) => k != _yorubaOrderKey)
+          .toList();
+    } else {
+      // English: always return in _englishBookNames order
+      // Only include books that are actually stored in Hive
+      if (!Hive.isBoxOpen(_englishBoxName)) return [];
+      final box = Hive.box(_englishBoxName);
+      final storedKeys = box.keys.cast<String>().toSet();
+      return _englishBookNames
+          .where((name) => storedKeys.contains(name))
+          .toList();
+    }
   }
 
   /// Get all chapters for a book
@@ -276,5 +301,3 @@ class BibleLoaderService {
     return verses[verse];
   }
 }
-
-
