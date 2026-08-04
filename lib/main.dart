@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -11,6 +11,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'services/bible_loader_service.dart';
+import 'services/lessons_loader_service.dart';
 import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 
@@ -90,6 +91,11 @@ class _AppRouterState extends ConsumerState<AppRouter> {
     // Load bundled Bibles into Hive (skips if already loaded)
     await BibleLoaderService.ensureBiblesLoaded();
 
+    setState(() => _statusText = 'Preparing lessons...');
+
+    // Load bundled lessons into cache (skips if already loaded)
+    await LessonsLoaderService.ensureLessonsLoaded();
+
     // Check if onboarding was already completed
     final onboardingDone = await OnboardingHelper.isComplete();
 
@@ -106,7 +112,7 @@ class _AppRouterState extends ConsumerState<AppRouter> {
 
   @override
   Widget build(BuildContext context) {
-    // Show splash until Bible + onboarding check done
+    // Show splash until Bible + lessons + onboarding check done
     if (!_splashDone) {
       return _SplashBody(statusText: _statusText);
     }
@@ -337,6 +343,3 @@ class _LiaLogoPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-
-
-

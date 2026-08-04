@@ -1,4 +1,4 @@
-﻿name: nggc
+name: nggc
 description: "New Generation Gospel Church Sunday School App"
 publish_to: 'none'
 version: 1.0.0+1
@@ -67,9 +67,6 @@ dev_dependencies:
   # App icon generator
   flutter_launcher_icons: ^0.14.1
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# App Icon Configuration
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 flutter_launcher_icons:
   android: "ic_launcher"
   ios: true
@@ -86,6 +83,7 @@ flutter:
   assets:
     - assets/images/
     - assets/bibles/
+    - assets/lessons/
 
   fonts:
     - family: Poppins
