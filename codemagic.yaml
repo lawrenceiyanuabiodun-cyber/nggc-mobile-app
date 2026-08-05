@@ -2,6 +2,15 @@ workflows:
   android-release:
     name: NGGC Android Release APK
     max_build_duration: 60
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+
     environment:
       flutter: 3.24.5
       java: 17
@@ -11,6 +20,7 @@ workflows:
         GITHUB_REPO: "lawrenceiyanuabiodun-cyber/nggc-mobile-app"
         RELEASE_TAG: "v1.0.0"
         APK_NAME: "NGGC.APP.apk"
+
     scripts:
       - name: Set up local.properties
         script: |
