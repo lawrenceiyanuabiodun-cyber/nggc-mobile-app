@@ -5,24 +5,101 @@ workflows:
     environment:
       flutter: 3.24.5
       java: 17
+      groups:
+        - github_release
+      vars:
+        GITHUB_REPO: "lawrenceiyanuabiodun-cyber/nggc-mobile-app"
+        RELEASE_TAG: "v1.0.0"
+        APK_NAME: "NGGC.APP.apk"
     scripts:
       - name: Set up local.properties
         script: |
           echo "flutter.sdk=$HOME/programs/flutter" > "$CM_BUILD_DIR/android/local.properties"
+
       - name: Get Flutter packages
         script: |
           flutter --version
           flutter packages pub get
+
       - name: Flutter analyze
         script: |
           flutter analyze || echo "Analyze completed with warnings"
         ignore_failure: true
+
       - name: Build Android APK (Release)
         script: |
           flutter build apk --release
+
+      - name: Rename APK
+        script: |
+          cp build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/$APK_NAME"
+          ls -lh build/app/outputs/flutter-apk/
+
+      - name: Upload APK to GitHub Release
+        script: |
+          set -e
+          echo "Uploading $APK_NAME to GitHub release $RELEASE_TAG..."
+
+          APK_PATH="build/app/outputs/flutter-apk/$APK_NAME"
+
+          # Get release ID from tag
+          RELEASE_JSON=$(curl -sS \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$GITHUB_REPO/releases/tags/$RELEASE_TAG")
+
+          RELEASE_ID=$(echo "$RELEASE_JSON" | grep -o '"id":[[:space:]]*[0-9]*' | head -n1 | grep -o '[0-9]*')
+
+          if [ -z "$RELEASE_ID" ]; then
+            echo "Release $RELEASE_TAG not found. Creating it..."
+            CREATE_JSON=$(curl -sS -X POST \
+              -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$GITHUB_REPO/releases" \
+              -d "{\"tag_name\":\"$RELEASE_TAG\",\"name\":\"NGGC App $RELEASE_TAG\",\"body\":\"Auto-built by Codemagic\"}")
+            RELEASE_ID=$(echo "$CREATE_JSON" | grep -o '"id":[[:space:]]*[0-9]*' | head -n1 | grep -o '[0-9]*')
+          fi
+
+          echo "Release ID: $RELEASE_ID"
+
+          # Delete existing asset with the same name (if it exists)
+          ASSETS_JSON=$(curl -sS \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$GITHUB_REPO/releases/$RELEASE_ID/assets")
+
+          OLD_ASSET_ID=$(echo "$ASSETS_JSON" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for a in data:
+    if a.get('name') == '$APK_NAME':
+        print(a['id'])
+        break
+" 2>/dev/null || echo "")
+
+          if [ -n "$OLD_ASSET_ID" ]; then
+            echo "Deleting old asset (ID: $OLD_ASSET_ID)..."
+            curl -sS -X DELETE \
+              -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.com/repos/$GITHUB_REPO/releases/assets/$OLD_ASSET_ID"
+          fi
+
+          # Upload new APK
+          echo "Uploading new APK..."
+          curl -sS -X POST \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            --data-binary @"$APK_PATH" \
+            "https://uploads.github.com/repos/$GITHUB_REPO/releases/$RELEASE_ID/assets?name=$APK_NAME"
+
+          echo ""
+          echo "✅ APK uploaded successfully!"
+          echo "Download URL: https://github.com/$GITHUB_REPO/releases/download/$RELEASE_TAG/$APK_NAME"
+
     artifacts:
       - build/**/outputs/**/*.apk
       - build/**/outputs/**/mapping.txt
+
     publishing:
       email:
         recipients:
