@@ -35,6 +35,8 @@ void main() async {
   await Hive.openBox(AppConfig.settingsBoxName);
   await Hive.openBox(AppConfig.verseBoxName);
   await Hive.openBox(AppConfig.progressBoxName);
+  await Hive.openBox(AppConfig.notesBoxName);
+  await Hive.openBox(AppConfig.favoritesBoxName);
   await NotificationService.initialize();
 
   runApp(
@@ -44,9 +46,9 @@ void main() async {
   );
 }
 
-// ─────────────────────────────────────────────────────────
-// NGGCApp — Root widget
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────
+// NGGCApp - Root widget
+// ─────────────────────────────────────────────────────
 class NGGCApp extends ConsumerWidget {
   const NGGCApp({super.key});
 
@@ -63,10 +65,10 @@ class NGGCApp extends ConsumerWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────
 // AppRouter
-// Shows splash → onboarding (first time) → Login or Home
-// ─────────────────────────────────────────────────────────
+// Shows splash -> onboarding (first time) -> Login or Home
+// ─────────────────────────────────────────────────────
 class AppRouter extends ConsumerStatefulWidget {
   const AppRouter({super.key});
 
@@ -132,9 +134,9 @@ class _AppRouterState extends ConsumerState<AppRouter> {
   }
 }
 
-// ─────────────────────────────────────────────────────────
-// _SplashBody — Original splash design preserved
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────
+// _SplashBody - Original splash design preserved
+// ─────────────────────────────────────────────────────
 class _SplashBody extends StatelessWidget {
   final String statusText;
 
@@ -235,9 +237,9 @@ class _SplashBody extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────
 // LiaConceptBadge
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────
 class LiaConceptBadge extends StatelessWidget {
   const LiaConceptBadge({super.key});
 

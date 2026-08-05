@@ -1,14 +1,15 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
+import '../../services/notes_cache_service.dart';
 import '../../theme/app_theme.dart';
 
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────
 // NotesScreen
-// Shows user personal notes from /notes/ API
-// Supports: view, add new note, delete note
-// ─────────────────────────────────────────────────────────
+// Offline-viewable via NotesCacheService.
+// Add/Delete require internet.
+// ─────────────────────────────────────────────────────
 class NotesScreen extends StatefulWidget {
   const NotesScreen({super.key});
 
@@ -19,40 +20,68 @@ class NotesScreen extends StatefulWidget {
 class _NotesScreenState extends State<NotesScreen> {
   List<dynamic> _notes = [];
   bool _isLoading = true;
+  bool _isOffline = false;
   String? _error;
   final Set<String> _deletingIds = {};
 
   @override
   void initState() {
     super.initState();
-    _fetchNotes();
+    _loadNotes();
   }
 
-  Future<void> _fetchNotes() async {
+  Future<void> _loadNotes() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
 
+    // Step 1: Show cached data instantly if available
+    final cached = NotesCacheService.getAll();
+    if (cached.isNotEmpty) {
+      setState(() {
+        _notes = cached;
+        _isLoading = false;
+      });
+    }
+
+    // Step 2: Try to fetch fresh data from API
     final response = await ApiService.get('/notes/');
 
     if (!mounted) return;
 
     if (response.isSuccess) {
+      final fresh = response.asList ?? [];
+      await NotesCacheService.saveAll(fresh);
       setState(() {
-        _notes = response.asList ?? [];
+        _notes = fresh;
         _isLoading = false;
+        _isOffline = false;
+        _error = null;
       });
     } else {
-      setState(() {
-        _error = response.error ?? 'Failed to load notes';
-        _isLoading = false;
-      });
+      // API failed - use cache if we have it
+      if (cached.isNotEmpty) {
+        setState(() {
+          _isOffline = true;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _error = response.error ?? 'Failed to load notes';
+          _isOffline = true;
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  // ── Delete note ────────────────────────────────────────
   Future<void> _deleteNote(String noteId) async {
+    if (_isOffline) {
+      _showOfflineMessage('delete');
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -100,31 +129,41 @@ class _NotesScreenState extends State<NotesScreen> {
       setState(() {
         _notes.removeWhere((n) => n['id']?.toString() == noteId);
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Note deleted'),
-          backgroundColor: AppTheme.primaryBlue,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      );
+      // Update cache
+      await NotesCacheService.saveAll(_notes);
+      _showSnack('Note deleted', AppTheme.primaryBlue);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(response.error ?? 'Failed to delete note'),
-          backgroundColor: AppTheme.errorRed,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      );
+      _showSnack(response.error ?? 'Failed to delete note', AppTheme.errorRed);
     }
   }
 
-  // ── View / Edit note ───────────────────────────────────
+  void _showOfflineMessage(String action) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('You are offline. Connect to the internet to $action notes.'),
+        backgroundColor: Colors.orange.shade700,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _showSnack(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
+  }
+
   void _viewNote(Map<String, dynamic> note) {
     final content = note['content']?.toString() ?? '';
     final lessonTitle = note['lesson_title']?.toString() ??
@@ -148,7 +187,6 @@ class _NotesScreenState extends State<NotesScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Handle bar
             Center(
               child: Container(
                 margin: const EdgeInsets.only(top: 12),
@@ -160,7 +198,6 @@ class _NotesScreenState extends State<NotesScreen> {
                 ),
               ),
             ),
-            // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
               child: Column(
@@ -188,7 +225,6 @@ class _NotesScreenState extends State<NotesScreen> {
               ),
             ),
             const Divider(height: 24),
-            // Content
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
@@ -220,38 +256,73 @@ class _NotesScreenState extends State<NotesScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _fetchNotes,
+            onPressed: _loadNotes,
             tooltip: 'Refresh',
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(color: AppTheme.primaryBlue),
-                  SizedBox(height: 16),
-                  Text(
-                    'Loading notes...',
-                    style: TextStyle(color: AppTheme.textSecondary),
-                  ),
-                ],
-              ),
-            )
-          : _error != null
-              ? _buildError()
-              : _notes.isEmpty
-                  ? _buildEmpty()
-                  : _buildList(),
+      body: Column(
+        children: [
+          if (_isOffline) _buildOfflineBanner(),
+          Expanded(
+            child: _isLoading && _notes.isEmpty
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(color: AppTheme.primaryBlue),
+                        SizedBox(height: 16),
+                        Text(
+                          'Loading notes...',
+                          style: TextStyle(color: AppTheme.textSecondary),
+                        ),
+                      ],
+                    ),
+                  )
+                : _error != null && _notes.isEmpty
+                    ? _buildError()
+                    : _notes.isEmpty
+                        ? _buildEmpty()
+                        : _buildList(),
+          ),
+        ],
+      ),
     );
   }
 
-  // ── Notes List ─────────────────────────────────────────
+  Widget _buildOfflineBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      color: Colors.orange.shade700,
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_off, color: Colors.white, size: 16),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              'Offline - showing saved notes (read-only)',
+              style: TextStyle(color: Colors.white, fontSize: 12),
+            ),
+          ),
+          TextButton(
+            onPressed: _loadNotes,
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: const Size(0, 24),
+            ),
+            child: const Text('Retry', style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildList() {
     return RefreshIndicator(
       color: AppTheme.primaryBlue,
-      onRefresh: _fetchNotes,
+      onRefresh: _loadNotes,
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         itemCount: _notes.length,
@@ -272,7 +343,6 @@ class _NotesScreenState extends State<NotesScreen> {
     final formattedDate = _formatDate(createdAt);
     final isDeleting = _deletingIds.contains(noteId);
 
-    // Preview — first 120 chars
     final preview = content.length > 120
         ? '${content.substring(0, 120)}...'
         : content;
@@ -291,7 +361,6 @@ class _NotesScreenState extends State<NotesScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header row
               Row(
                 children: [
                   Container(
@@ -333,7 +402,6 @@ class _NotesScreenState extends State<NotesScreen> {
                       ],
                     ),
                   ),
-                  // Delete button
                   isDeleting
                       ? const SizedBox(
                           width: 20,
@@ -344,20 +412,23 @@ class _NotesScreenState extends State<NotesScreen> {
                           ),
                         )
                       : IconButton(
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.delete_outline,
-                            color: AppTheme.errorRed,
+                            color: _isOffline
+                                ? AppTheme.textHint
+                                : AppTheme.errorRed,
                             size: 18,
                           ),
                           onPressed: () => _deleteNote(noteId),
-                          tooltip: 'Delete note',
+                          tooltip: _isOffline
+                              ? 'Offline - cannot delete'
+                              : 'Delete note',
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         ),
                 ],
               ),
               const SizedBox(height: 10),
-              // Note preview
               Text(
                 preview,
                 style: const TextStyle(
@@ -367,7 +438,6 @@ class _NotesScreenState extends State<NotesScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              // Read more hint
               const Align(
                 alignment: Alignment.centerRight,
                 child: Text(
@@ -386,7 +456,6 @@ class _NotesScreenState extends State<NotesScreen> {
     );
   }
 
-  // ── Empty State ────────────────────────────────────────
   Widget _buildEmpty() {
     return Center(
       child: Column(
@@ -420,7 +489,6 @@ class _NotesScreenState extends State<NotesScreen> {
     );
   }
 
-  // ── Error State ────────────────────────────────────────
   Widget _buildError() {
     return Center(
       child: Padding(
@@ -453,7 +521,7 @@ class _NotesScreenState extends State<NotesScreen> {
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: _fetchNotes,
+              onPressed: _loadNotes,
               icon: const Icon(Icons.refresh),
               label: const Text('Try Again'),
               style: ElevatedButton.styleFrom(

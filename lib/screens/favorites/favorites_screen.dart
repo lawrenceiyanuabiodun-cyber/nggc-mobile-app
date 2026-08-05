@@ -1,14 +1,15 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../../services/api_service.dart';
+import '../../services/favorites_cache_service.dart';
 import '../../theme/app_theme.dart';
 import '../lessons/lesson_detail_screen.dart';
 
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────
 // FavoritesScreen
-// Shows user saved lessons from /favorites/ API
-// Supports removing favorites via DELETE /favorites/{id}
-// ─────────────────────────────────────────────────────────
+// Offline-viewable via FavoritesCacheService.
+// Remove requires internet.
+// ─────────────────────────────────────────────────────
 class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});
 
@@ -19,40 +20,67 @@ class FavoritesScreen extends StatefulWidget {
 class _FavoritesScreenState extends State<FavoritesScreen> {
   List<dynamic> _favorites = [];
   bool _isLoading = true;
+  bool _isOffline = false;
   String? _error;
   final Set<String> _removingIds = {};
 
   @override
   void initState() {
     super.initState();
-    _fetchFavorites();
+    _loadFavorites();
   }
 
-  Future<void> _fetchFavorites() async {
+  Future<void> _loadFavorites() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
 
+    // Step 1: Show cached data instantly
+    final cached = FavoritesCacheService.getAll();
+    if (cached.isNotEmpty) {
+      setState(() {
+        _favorites = cached;
+        _isLoading = false;
+      });
+    }
+
+    // Step 2: Try API refresh
     final response = await ApiService.get('/favorites/');
 
     if (!mounted) return;
 
     if (response.isSuccess) {
+      final fresh = response.asList ?? [];
+      await FavoritesCacheService.saveAll(fresh);
       setState(() {
-        _favorites = response.asList ?? [];
+        _favorites = fresh;
         _isLoading = false;
+        _isOffline = false;
+        _error = null;
       });
     } else {
-      setState(() {
-        _error = response.error ?? 'Failed to load favorites';
-        _isLoading = false;
-      });
+      if (cached.isNotEmpty) {
+        setState(() {
+          _isOffline = true;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _error = response.error ?? 'Failed to load favorites';
+          _isOffline = true;
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  // ── Remove favorite ────────────────────────────────────
   Future<void> _removeFavorite(String favoriteId, String title) async {
+    if (_isOffline) {
+      _showOfflineMessage('remove');
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -102,28 +130,39 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           (f) => f['id']?.toString() == favoriteId,
         );
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Removed from favorites'),
-          backgroundColor: AppTheme.primaryBlue,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      );
+      await FavoritesCacheService.saveAll(_favorites);
+      _showSnack('Removed from favorites', AppTheme.primaryBlue);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(response.error ?? 'Failed to remove'),
-          backgroundColor: AppTheme.errorRed,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      );
+      _showSnack(response.error ?? 'Failed to remove', AppTheme.errorRed);
     }
+  }
+
+  void _showOfflineMessage(String action) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+            'You are offline. Connect to the internet to $action favorites.'),
+        backgroundColor: Colors.orange.shade700,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _showSnack(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
   }
 
   @override
@@ -138,38 +177,73 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _fetchFavorites,
+            onPressed: _loadFavorites,
             tooltip: 'Refresh',
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(color: AppTheme.primaryBlue),
-                  SizedBox(height: 16),
-                  Text(
-                    'Loading favorites...',
-                    style: TextStyle(color: AppTheme.textSecondary),
-                  ),
-                ],
-              ),
-            )
-          : _error != null
-              ? _buildError()
-              : _favorites.isEmpty
-                  ? _buildEmpty()
-                  : _buildList(),
+      body: Column(
+        children: [
+          if (_isOffline) _buildOfflineBanner(),
+          Expanded(
+            child: _isLoading && _favorites.isEmpty
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(color: AppTheme.primaryBlue),
+                        SizedBox(height: 16),
+                        Text(
+                          'Loading favorites...',
+                          style: TextStyle(color: AppTheme.textSecondary),
+                        ),
+                      ],
+                    ),
+                  )
+                : _error != null && _favorites.isEmpty
+                    ? _buildError()
+                    : _favorites.isEmpty
+                        ? _buildEmpty()
+                        : _buildList(),
+          ),
+        ],
+      ),
     );
   }
 
-  // ── Favorites List ─────────────────────────────────────
+  Widget _buildOfflineBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      color: Colors.orange.shade700,
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_off, color: Colors.white, size: 16),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              'Offline - showing saved favorites (read-only)',
+              style: TextStyle(color: Colors.white, fontSize: 12),
+            ),
+          ),
+          TextButton(
+            onPressed: _loadFavorites,
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: const Size(0, 24),
+            ),
+            child: const Text('Retry', style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildList() {
     return RefreshIndicator(
       color: AppTheme.primaryBlue,
-      onRefresh: _fetchFavorites,
+      onRefresh: _loadFavorites,
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         itemCount: _favorites.length,
@@ -182,7 +256,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   }
 
   Widget _buildFavoriteCard(Map<String, dynamic> item) {
-    // Favorite item may contain lesson data directly or nested
     final favoriteId = item['id']?.toString() ?? '';
     final lesson = item['lesson'] as Map<String, dynamic>? ?? item;
     final lessonId = lesson['lesson_id']?.toString() ??
@@ -217,7 +290,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              // Favorite icon
               Container(
                 width: 44,
                 height: 44,
@@ -232,7 +304,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              // Content
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -282,7 +353,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              // Remove button
               isRemoving
                   ? const SizedBox(
                       width: 20,
@@ -293,13 +363,17 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                       ),
                     )
                   : IconButton(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.delete_outline,
-                        color: AppTheme.errorRed,
+                        color: _isOffline
+                            ? AppTheme.textHint
+                            : AppTheme.errorRed,
                         size: 20,
                       ),
                       onPressed: () => _removeFavorite(favoriteId, title),
-                      tooltip: 'Remove from favorites',
+                      tooltip: _isOffline
+                          ? 'Offline - cannot remove'
+                          : 'Remove from favorites',
                     ),
             ],
           ),
@@ -308,7 +382,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     );
   }
 
-  // ── Empty State ────────────────────────────────────────
   Widget _buildEmpty() {
     return Center(
       child: Column(
@@ -341,7 +414,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     );
   }
 
-  // ── Error State ────────────────────────────────────────
   Widget _buildError() {
     return Center(
       child: Padding(
@@ -374,7 +446,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: _fetchFavorites,
+              onPressed: _loadFavorites,
               icon: const Icon(Icons.refresh),
               label: const Text('Try Again'),
               style: ElevatedButton.styleFrom(
