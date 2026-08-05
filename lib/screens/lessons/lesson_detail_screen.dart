@@ -1,17 +1,20 @@
-﻿import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../services/api_service.dart';
-import '../../theme/app_theme.dart';
+import '../../services/manuals_loader_service.dart';
 import '../../services/progress_cache_service.dart';
+import '../../theme/app_theme.dart';
 import '../../widgets/common/shimmer_widgets.dart';
 
 // ─────────────────────────────────────────────────────────
 // LessonDetailScreen
-// Full lesson content with:
-// - Favorite toggle (heart in AppBar)
-// - Add Note (FAB)
-// - Memory verse card
-// - Reading progress tracking
+// Renders full lesson content from bundled or fetched data:
+// - Title, topic, memory verse, bible passage
+// - Introduction, outline, application, assignment
+// - Discussion questions, conclusion, teacher notes
+// Offline-first: reads bundled Hive cache instantly
 // ─────────────────────────────────────────────────────────
 class LessonDetailScreen extends StatefulWidget {
   final String lessonId;
@@ -32,55 +35,64 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   bool _isLoading = true;
   String? _error;
 
-  // Favorite state
   bool _isFavorited = false;
   bool _favoriteLoading = false;
   String? _favoriteId;
 
-  // Note state
   bool _noteLoading = false;
-
-  // Font size
-  double _fontSize = 17.0;
+  double _fontSize = 16.0;
 
   @override
   void initState() {
     super.initState();
-    _fetchDetail();
+    _loadLesson();
     _checkFavorite();
     _trackProgress();
   }
 
-  // ── Fetch lesson content ───────────────────────────────
-  Future<void> _fetchDetail() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+  Future<void> _loadLesson() async {
+    setState(() { _isLoading = true; _error = null; });
 
-    final response =
-        await ApiService.get('/lessons/${widget.lessonId}/full');
-
-    if (!mounted) return;
-
-    if (response.isSuccess) {
+    // STEP 1: Load from bundled/cached Hive instantly
+    final cached = ManualsLoaderService.getFullLesson(widget.lessonId);
+    if (cached != null) {
       setState(() {
-        _lesson = response.asMap;
+        _lesson = cached;
         _isLoading = false;
       });
-    } else {
+    }
+
+    // STEP 2: Refresh from API in background
+    try {
+      final response =
+          await ApiService.get('/lessons/${widget.lessonId}/full');
+      if (!mounted) return;
+      if (response.isSuccess && response.asMap != null) {
+        final data = response.asMap!;
+        if (data['lesson'] is Map) {
+          final lesson = Map<String, dynamic>.from(data['lesson'] as Map);
+          await ManualsLoaderService.saveFullLesson(lesson);
+          setState(() {
+            _lesson = lesson;
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (_) {
+      // Silent — cached data is still shown
+    }
+
+    if (mounted && _lesson == null) {
       setState(() {
-        _error = response.error ?? 'Failed to load lesson content';
+        _error = 'Could not load lesson.\nPlease check your connection.';
         _isLoading = false;
       });
     }
   }
 
-  // ── Check if lesson is favorited ───────────────────────
   Future<void> _checkFavorite() async {
-    final response = await ApiService.get(
-      '/favorites/check/${widget.lessonId}',
-    );
+    final response =
+        await ApiService.get('/favorites/check/${widget.lessonId}');
     if (!mounted) return;
     if (response.isSuccess && response.asMap != null) {
       setState(() {
@@ -91,35 +103,25 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     }
   }
 
-  // ── Track reading progress ─────────────────────────────
-  // Mark 50% on open (started), 100% only when explicitly completed
   Future<void> _trackProgress() async {
-    // Save locally first (works offline)
     await ProgressCacheService.saveProgress(widget.lessonId, 50);
-    // Then sync with API
     try {
-      await ApiService.post(
-        '/progress/',
-        body: {
-          'lesson_id': widget.lessonId,
-          'progress_percentage': 50,
-          'is_completed': false,
-        },
-      );
+      await ApiService.post('/progress/', body: {
+        'lesson_id': widget.lessonId,
+        'progress_percentage': 50,
+        'is_completed': false,
+      });
     } catch (_) {}
   }
 
   Future<void> _markAsComplete() async {
     await ProgressCacheService.saveProgress(widget.lessonId, 100);
     try {
-      await ApiService.post(
-        '/progress/',
-        body: {
-          'lesson_id': widget.lessonId,
-          'progress_percentage': 100,
-          'is_completed': true,
-        },
-      );
+      await ApiService.post('/progress/', body: {
+        'lesson_id': widget.lessonId,
+        'progress_percentage': 100,
+        'is_completed': true,
+      });
     } catch (_) {}
     if (mounted) {
       _showSnack('Lesson marked as complete ✓', AppTheme.successGreen);
@@ -127,63 +129,52 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     }
   }
 
-  // ── Toggle favorite ────────────────────────────────────
   Future<void> _toggleFavorite() async {
     setState(() => _favoriteLoading = true);
-
     if (_isFavorited && _favoriteId != null) {
-      // Remove favorite
       final response = await ApiService.delete('/favorites/$_favoriteId');
       if (!mounted) return;
       if (response.isSuccess) {
-        setState(() {
-          _isFavorited = false;
-          _favoriteId = null;
-        });
+        setState(() { _isFavorited = false; _favoriteId = null; });
         _showSnack('Removed from favorites', AppTheme.textSecondary);
-      } else {
-        _showSnack(response.error ?? 'Failed to remove', AppTheme.errorRed);
       }
     } else {
-      // Add favorite
-      final response = await ApiService.post(
-        '/favorites/',
-        body: {'lesson_id': widget.lessonId},
-      );
+      final response = await ApiService.post('/favorites/',
+          body: {'lesson_id': widget.lessonId});
       if (!mounted) return;
       if (response.isSuccess) {
-        final data = response.asMap;
         setState(() {
           _isFavorited = true;
-          _favoriteId = data?['id']?.toString() ??
-              data?['favorite_id']?.toString();
+          _favoriteId = response.asMap?['id']?.toString() ??
+              response.asMap?['favorite_id']?.toString();
         });
         _showSnack('Added to favorites ❤️', AppTheme.errorRed);
-      } else {
-        _showSnack(response.error ?? 'Failed to add', AppTheme.errorRed);
       }
     }
-
     if (mounted) setState(() => _favoriteLoading = false);
   }
 
-  // ── Show add note dialog ───────────────────────────────
+  void _copyToClipboard(String text, String label) {
+    Clipboard.setData(ClipboardData(text: text));
+    _showSnack('$label copied!', AppTheme.primaryBlue);
+  }
+
   void _showAddNoteDialog() {
     final noteController = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-        ),
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+            borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(24),
               topRight: Radius.circular(24),
             ),
@@ -195,11 +186,9 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Handle bar
                 Center(
                   child: Container(
-                    width: 40,
-                    height: 4,
+                    width: 40, height: 4,
                     decoration: BoxDecoration(
                       color: AppTheme.dividerColor,
                       borderRadius: BorderRadius.circular(2),
@@ -207,44 +196,38 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                // Title
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.sticky_note_2_outlined,
-                      color: AppTheme.accentGoldDark,
-                      size: 22,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Note on: ${widget.title}',
-                        style: const TextStyle(
+                Row(children: [
+                  const Icon(Icons.sticky_note_2_outlined,
+                      color: AppTheme.accentGoldDark, size: 22),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Note on: ${widget.title}',
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryBlue,
+                          color: isDark ? Colors.white : AppTheme.primaryBlue,
                         ),
                         maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                ]),
                 const SizedBox(height: 16),
-                // Note input
                 TextFormField(
                   controller: noteController,
                   maxLines: 6,
                   autofocus: true,
                   textCapitalization: TextCapitalization.sentences,
+                  style: TextStyle(
+                      color: isDark ? Colors.white : AppTheme.textPrimary),
                   decoration: InputDecoration(
                     hintText: 'Write your note here...',
-                    hintStyle: const TextStyle(
-                      color: AppTheme.textHint,
-                      fontSize: 14,
-                    ),
+                    hintStyle: TextStyle(
+                        color: isDark ? Colors.white38 : AppTheme.textHint,
+                        fontSize: 14),
                     filled: true,
-                    fillColor: AppTheme.surfaceLight,
+                    fillColor: isDark
+                        ? const Color(0xFF0F0F1E)
+                        : AppTheme.surfaceLight,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide:
@@ -258,9 +241,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                        color: AppTheme.primaryBlue,
-                        width: 2,
-                      ),
+                          color: AppTheme.primaryBlue, width: 2),
                     ),
                   ),
                   validator: (v) {
@@ -271,7 +252,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                // Save button
                 ElevatedButton(
                   onPressed: _noteLoading
                       ? null
@@ -285,16 +265,11 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                     foregroundColor: Colors.white,
                     minimumSize: const Size(double.infinity, 48),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                        borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text(
-                    'Save Note',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: const Text('Save Note',
+                      style: TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w600)),
                 ),
               ],
             ),
@@ -304,21 +279,12 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     );
   }
 
-  // ── Save note to API ───────────────────────────────────
   Future<void> _saveNote(String content) async {
     setState(() => _noteLoading = true);
-
-    final response = await ApiService.post(
-      '/notes/',
-      body: {
-        'lesson_id': widget.lessonId,
-        'content': content,
-      },
-    );
-
+    final response = await ApiService.post('/notes/',
+        body: {'lesson_id': widget.lessonId, 'content': content});
     if (!mounted) return;
     setState(() => _noteLoading = false);
-
     if (response.isSuccess) {
       _showSnack('Note saved! ✏️', AppTheme.successGreen);
     } else {
@@ -326,65 +292,50 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     }
   }
 
-  // ── Snackbar helper ────────────────────────────────────
   void _showSnack(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: color,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+      backgroundColor: color,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      duration: const Duration(seconds: 2),
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor =
+        isDark ? const Color(0xFF0F0F1E) : const Color(0xFFFAF8F5);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFFAF8F5),
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: Text(
-          widget.title,
-          style: const TextStyle(fontSize: 15),
-        ),
+        title:
+            Text(widget.title, style: const TextStyle(fontSize: 14)),
         backgroundColor: AppTheme.primaryBlue,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          // Font size decrease
           IconButton(
             icon: const Icon(Icons.text_decrease, size: 20),
-            onPressed: () {
-              setState(() {
-                if (_fontSize > 13) _fontSize -= 2;
-              });
-            },
-            tooltip: 'Decrease text size',
+            onPressed: () =>
+                setState(() { if (_fontSize > 13) _fontSize -= 1; }),
+            tooltip: 'Smaller',
           ),
-          // Font size increase
           IconButton(
             icon: const Icon(Icons.text_increase, size: 20),
-            onPressed: () {
-              setState(() {
-                if (_fontSize < 24) _fontSize += 2;
-              });
-            },
-            tooltip: 'Increase text size',
+            onPressed: () =>
+                setState(() { if (_fontSize < 24) _fontSize += 1; }),
+            tooltip: 'Larger',
           ),
-          // Favorite toggle
           _favoriteLoading
               ? const Padding(
                   padding: EdgeInsets.all(12),
                   child: SizedBox(
-                    width: 20,
-                    height: 20,
+                    width: 20, height: 20,
                     child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
+                        color: Colors.white, strokeWidth: 2),
                   ),
                 )
               : IconButton(
@@ -398,9 +349,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                     size: 22,
                   ),
                   onPressed: _toggleFavorite,
-                  tooltip: _isFavorited
-                      ? 'Remove from favorites'
-                      : 'Add to favorites',
                 ),
         ],
       ),
@@ -409,12 +357,10 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
         backgroundColor: AppTheme.accentGoldDark,
         foregroundColor: AppTheme.primaryBlueDark,
         icon: const Icon(Icons.edit_note),
-        label: const Text(
-          'Add Note',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
+        label: const Text('Add Note',
+            style: TextStyle(fontWeight: FontWeight.w600)),
       ),
-      body: _isLoading
+      body: _isLoading && _lesson == null
           ? ListView(
               padding: const EdgeInsets.all(20),
               children: const [
@@ -425,52 +371,43 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                 ShimmerCard(height: 150),
               ],
             )
-          : _error != null
-              ? _buildError()
-              : _buildContent(),
+          : _error != null && _lesson == null
+              ? _buildError(isDark)
+              : _buildContent(isDark),
     );
   }
 
-  // ── Error State ────────────────────────────────────────
-  Widget _buildError() {
+  Widget _buildError(bool isDark) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.wifi_off_outlined,
-              size: 56,
-              color: AppTheme.textHint,
-            ),
+            Icon(Icons.wifi_off_outlined,
+                size: 56,
+                color: isDark ? Colors.white38 : AppTheme.textHint),
             const SizedBox(height: 16),
-            const Text(
-              'Could not load lesson',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
-              ),
-            ),
+            Text('Could not load lesson',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : AppTheme.textPrimary)),
             const SizedBox(height: 8),
-            Text(
-              _error!,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppTheme.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-            ),
+            Text(_error!,
+                style: TextStyle(
+                    fontSize: 13,
+                    color:
+                        isDark ? Colors.white60 : AppTheme.textSecondary),
+                textAlign: TextAlign.center),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: _fetchDetail,
+              onPressed: _loadLesson,
               icon: const Icon(Icons.refresh),
               label: const Text('Try Again'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryBlue,
-                foregroundColor: Colors.white,
-              ),
+                  backgroundColor: AppTheme.primaryBlue,
+                  foregroundColor: Colors.white),
             ),
           ],
         ),
@@ -478,174 +415,373 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     );
   }
 
-  // ── Lesson Content ─────────────────────────────────────
-  Widget _buildContent() {
+  Widget _buildContent(bool isDark) {
     final lesson = _lesson!;
-    final content =
-        lesson['content']?.toString() ?? 'No content available.';
-    final memoryVerse = lesson['memory_verse']?.toString() ?? '';
-    final topic = lesson['topic']?.toString() ?? '';
-    final quarter = lesson['quarter']?.toString() ?? '';
-    final language = lesson['language']?.toString() ?? 'english';
-    final weekNumber = lesson['week_number']?.toString() ??
-        lesson['week']?.toString() ?? '';
+
+    final String title = lesson['title']?.toString() ?? widget.title;
+    final String topic = lesson['topic']?.toString() ?? '';
+    final String biblePassage =
+        lesson['bible_passage']?.toString() ?? '';
+    final String memoryVerse =
+        lesson['memory_verse']?.toString() ?? '';
+    final String memoryVerseRef =
+        lesson['memory_verse_reference']?.toString() ?? '';
+    final String goldenText = lesson['golden_text']?.toString() ?? '';
+    final String goldenTextRef =
+        lesson['golden_text_reference']?.toString() ?? '';
+    final String aim = _cleanField(lesson['lesson_aim']) ??
+        _cleanField(lesson['aim']) ?? '';
+    final String centralTruth =
+        _cleanField(lesson['central_truth']) ?? '';
+    final String objectives = _cleanField(lesson['objectives']) ?? '';
+    final String introduction =
+        _cleanField(lesson['introduction']) ?? '';
+    final String application = _cleanField(lesson['application']) ?? '';
+    final String assignment = _cleanField(lesson['assignment']) ?? '';
+    final String conclusion = _cleanField(lesson['conclusion']) ?? '';
+    final String discussionQuestions =
+        _cleanField(lesson['discussion_questions']) ?? '';
+    final String teacherNotes =
+        _cleanField(lesson['teacher_notes']) ?? '';
+    final String language =
+        lesson['language']?.toString() ?? 'english';
+    final String quarter = lesson['quarter']?.toString() ?? '';
+    final String lessonNumber =
+        lesson['lesson_number']?.toString() ?? '';
+    final String lessonDate =
+        lesson['lesson_date']?.toString() ?? '';
+
+    // Parse outline JSON array
+    final List<Map<String, dynamic>> outlineList = _parseOutline(lesson['outline']);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 120),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Lesson meta info ─────────────────────────
+          // ── Header card ──
           Container(
-            padding: const EdgeInsets.all(16),
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: AppTheme.primaryBlue.withOpacity(0.04),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppTheme.primaryBlue.withOpacity(0.1),
+              gradient: const LinearGradient(
+                colors: [AppTheme.primaryBlue, AppTheme.primaryBlueDark],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  widget.title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryBlue,
-                  ),
-                ),
-                if (topic.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    topic,
+                if (lessonNumber.isNotEmpty)
+                  Text('LESSON $lessonNumber',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.accentGold,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5)),
+                const SizedBox(height: 6),
+                Text(title,
                     style: const TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        height: 1.4)),
+                if (topic.isNotEmpty && topic != title) ...[
+                  const SizedBox(height: 4),
+                  Text(topic,
+                      style: const TextStyle(
+                          fontSize: 12, color: Colors.white70)),
                 ],
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: [
-                    if (language.isNotEmpty)
-                      _buildChip(
-                        language[0].toUpperCase() +
-                            language.substring(1),
-                        AppTheme.primaryBlue,
-                      ),
-                    if (quarter.isNotEmpty)
-                      _buildChip(quarter, AppTheme.accentGoldDark),
-                    if (weekNumber.isNotEmpty)
-                      _buildChip('Week $weekNumber', AppTheme.successGreen),
-                  ],
-                ),
+                const SizedBox(height: 12),
+                Wrap(spacing: 8, runSpacing: 6, children: [
+                  _buildChip(
+                      language[0].toUpperCase() + language.substring(1),
+                      Colors.white,
+                      Colors.white24),
+                  if (quarter.isNotEmpty)
+                    _buildChip(quarter, AppTheme.accentGold,
+                        AppTheme.accentGold.withOpacity(0.2)),
+                  if (lessonDate.isNotEmpty)
+                    _buildChip(_formatDate(lessonDate), Colors.white70,
+                        Colors.white12),
+                ]),
               ],
             ),
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
 
-          // ── Memory verse ─────────────────────────────
-          if (memoryVerse.isNotEmpty) ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.accentGold.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppTheme.accentGold,
-                  width: 1.5,
-                ),
-              ),
+          // ── Aim ──
+          if (aim.isNotEmpty)
+            _section(
+              icon: Icons.flag_outlined,
+              iconColor: AppTheme.successGreen,
+              label: 'AIM',
+              isDark: isDark,
+              child: Text(aim,
+                  style: TextStyle(
+                      fontSize: _fontSize,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.white : AppTheme.textPrimary,
+                      height: 1.6)),
+            ),
+
+          // ── Central Truth ──
+          if (centralTruth.isNotEmpty)
+            _section(
+              icon: Icons.stars_outlined,
+              iconColor: AppTheme.accentGoldDark,
+              label: 'CENTRAL TRUTH',
+              isDark: isDark,
+              child: Text(centralTruth,
+                  style: TextStyle(
+                      fontSize: _fontSize,
+                      color: isDark ? Colors.white : AppTheme.textPrimary,
+                      height: 1.6)),
+            ),
+
+          // ── Bible Passage ──
+          if (biblePassage.isNotEmpty)
+            _section(
+              icon: Icons.menu_book,
+              iconColor: AppTheme.primaryBlue,
+              label: 'BIBLE PASSAGE',
+              isDark: isDark,
+              trailing: _copyBtn(biblePassage, 'Bible passage', isDark),
+              child: Text(biblePassage,
+                  style: TextStyle(
+                      fontSize: _fontSize,
+                      fontWeight: FontWeight.w600,
+                      color:
+                          isDark ? Colors.white : AppTheme.primaryBlue,
+                      height: 1.5)),
+            ),
+
+          // ── Memory Verse ──
+          if (memoryVerse.isNotEmpty)
+            _memoryVerseCard(memoryVerse, memoryVerseRef, isDark),
+
+          // ── Golden Text (if separate from memory verse) ──
+          if (goldenText.isNotEmpty && goldenText != memoryVerse)
+            _section(
+              icon: Icons.format_quote,
+              iconColor: AppTheme.accentGoldDark,
+              label: 'GOLDEN TEXT',
+              isDark: isDark,
+              trailing: _copyBtn(goldenText, 'Golden text', isDark),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: const [
-                      Icon(
-                        Icons.menu_book_outlined,
-                        color: AppTheme.accentGoldDark,
-                        size: 18,
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        'MEMORY VERSE',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          color: AppTheme.primaryBlueDark,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    memoryVerse,
-                    style: const TextStyle(
-                      fontStyle: FontStyle.italic,
-                      fontSize: 15,
-                      height: 1.6,
-                      color: AppTheme.textPrimary,
+                  Text('"$goldenText"',
+                      style: TextStyle(
+                          fontSize: _fontSize,
+                          fontStyle: FontStyle.italic,
+                          color:
+                              isDark ? Colors.white : AppTheme.textPrimary,
+                          height: 1.6)),
+                  if (goldenTextRef.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Text('— $goldenTextRef',
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.accentGoldDark)),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
-            const SizedBox(height: 24),
-          ],
 
-          // ── Lesson content ────────────────────────────
-          const Text(
-            'LESSON CONTENT',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.textHint,
-              letterSpacing: 1.2,
+          // ── Objectives ──
+          if (objectives.isNotEmpty)
+            _section(
+              icon: Icons.checklist_outlined,
+              iconColor: AppTheme.primaryBlue,
+              label: 'OBJECTIVES',
+              isDark: isDark,
+              child: Text(objectives,
+                  style: TextStyle(
+                      fontSize: _fontSize,
+                      color: isDark ? Colors.white : AppTheme.textPrimary,
+                      height: 1.7)),
             ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            content,
-            style: TextStyle(
-              fontSize: _fontSize,
-              height: 1.8,
-              color: const Color(0xFF2D2D2D),
+
+          // ── Introduction ──
+          if (introduction.isNotEmpty)
+            _section(
+              icon: Icons.article_outlined,
+              iconColor: AppTheme.primaryBlue,
+              label: 'INTRODUCTION',
+              isDark: isDark,
+              child: Text(introduction,
+                  style: TextStyle(
+                      fontSize: _fontSize,
+                      color: isDark ? Colors.white : AppTheme.textPrimary,
+                      height: 1.7)),
             ),
-          ),
 
-          const SizedBox(height: 40),
+          // ── Outline ──
+          if (outlineList.isNotEmpty)
+            _section(
+              icon: Icons.format_list_numbered,
+              iconColor: AppTheme.successGreen,
+              label: 'LESSON OUTLINE',
+              isDark: isDark,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: outlineList.asMap().entries.map((entry) {
+                  final i = entry.key;
+                  final item = entry.value;
+                  final heading = item['heading']?.toString() ?? '';
+                  final body = item['body']?.toString() ?? '';
+                  final order = item['order']?.toString() ?? '${i + 1}';
+                  return Padding(
+                    padding: EdgeInsets.only(
+                        bottom: i == outlineList.length - 1 ? 0 : 18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 24,
+                              height: 24,
+                              margin: const EdgeInsets.only(top: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.successGreen
+                                    .withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Center(
+                                child: Text(order,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.successGreen,
+                                    )),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(heading,
+                                  style: TextStyle(
+                                    fontSize: _fontSize,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark
+                                        ? Colors.white
+                                        : AppTheme.textPrimary,
+                                    height: 1.5,
+                                  )),
+                            ),
+                          ],
+                        ),
+                        if (body.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 34),
+                            child: Text(body,
+                                style: TextStyle(
+                                  fontSize: _fontSize - 1,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : AppTheme.textSecondary,
+                                  height: 1.7,
+                                )),
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
 
-          // ── Bottom action hint ────────────────────────
+          // ── Application ──
+          if (application.isNotEmpty)
+            _section(
+              icon: Icons.lightbulb_outline,
+              iconColor: AppTheme.accentGoldDark,
+              label: 'APPLICATION',
+              isDark: isDark,
+              child: Text(application,
+                  style: TextStyle(
+                      fontSize: _fontSize,
+                      color: isDark ? Colors.white : AppTheme.textPrimary,
+                      height: 1.7)),
+            ),
+
+          // ── Discussion Questions ──
+          if (discussionQuestions.isNotEmpty)
+            _section(
+              icon: Icons.help_outline,
+              iconColor: AppTheme.primaryBlue,
+              label: 'DISCUSSION QUESTIONS',
+              isDark: isDark,
+              child: Text(discussionQuestions,
+                  style: TextStyle(
+                      fontSize: _fontSize,
+                      color: isDark ? Colors.white : AppTheme.textPrimary,
+                      height: 1.7)),
+            ),
+
+          // ── Conclusion ──
+          if (conclusion.isNotEmpty)
+            _section(
+              icon: Icons.done_all,
+              iconColor: AppTheme.successGreen,
+              label: 'CONCLUSION',
+              isDark: isDark,
+              child: Text(conclusion,
+                  style: TextStyle(
+                      fontSize: _fontSize,
+                      color: isDark ? Colors.white : AppTheme.textPrimary,
+                      height: 1.7)),
+            ),
+
+          // ── Assignment ──
+          if (assignment.isNotEmpty)
+            _section(
+              icon: Icons.assignment_outlined,
+              iconColor: Colors.deepOrange,
+              label: 'ASSIGNMENT',
+              isDark: isDark,
+              child: Text(assignment,
+                  style: TextStyle(
+                      fontSize: _fontSize,
+                      color: isDark ? Colors.white : AppTheme.textPrimary,
+                      height: 1.7)),
+            ),
+
+          // ── Teacher Notes ──
+          if (teacherNotes.isNotEmpty)
+            _section(
+              icon: Icons.person_outline,
+              iconColor: Colors.purple,
+              label: 'TEACHER NOTES',
+              isDark: isDark,
+              child: Text(teacherNotes,
+                  style: TextStyle(
+                      fontSize: _fontSize,
+                      fontStyle: FontStyle.italic,
+                      color: isDark
+                          ? Colors.white70
+                          : AppTheme.textSecondary,
+                      height: 1.7)),
+            ),
+
+          const SizedBox(height: 30),
+
+          // ── Bottom action ──
           Center(
             child: Column(
               children: [
                 const Divider(),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.edit_note,
-                      size: 16,
-                      color: AppTheme.textHint.withOpacity(0.7),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Tap "Add Note" to save your thoughts',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textHint.withOpacity(0.7),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 if (!ProgressCacheService.isCompleted(widget.lessonId))
                   ElevatedButton.icon(
                     onPressed: _markAsComplete,
@@ -656,13 +792,13 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                       foregroundColor: Colors.white,
                       minimumSize: const Size(220, 44),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(22),
-                      ),
+                          borderRadius: BorderRadius.circular(22)),
                     ),
                   )
                 else
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 10),
                     decoration: BoxDecoration(
                       color: AppTheme.successGreen.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(22),
@@ -671,17 +807,34 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.check_circle, color: AppTheme.successGreen, size: 18),
+                        Icon(Icons.check_circle,
+                            color: AppTheme.successGreen, size: 18),
                         SizedBox(width: 8),
                         Text('Completed',
-                          style: TextStyle(
-                            color: AppTheme.successGreen,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                            style: TextStyle(
+                                color: AppTheme.successGreen,
+                                fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.edit_note,
+                        size: 16,
+                        color: isDark
+                            ? Colors.white38
+                            : AppTheme.textHint.withOpacity(0.7)),
+                    const SizedBox(width: 6),
+                    Text('Tap "Add Note" to save your thoughts',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: isDark
+                                ? Colors.white38
+                                : AppTheme.textHint.withOpacity(0.7))),
+                  ],
+                ),
               ],
             ),
           ),
@@ -690,23 +843,167 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     );
   }
 
-  Widget _buildChip(String label, Color color) {
+  // ── Memory verse special card ─────────────────────────
+  Widget _memoryVerseCard(String verse, String ref, bool isDark) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
+        color: AppTheme.accentGold.withOpacity(isDark ? 0.12 : 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.accentGold, width: 1.5),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.format_quote,
+                  color: AppTheme.accentGoldDark, size: 20),
+              const SizedBox(width: 8),
+              const Text('MEMORY VERSE',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                      color: AppTheme.accentGoldDark,
+                      letterSpacing: 1.2)),
+              const Spacer(),
+              _copyBtn('"$verse"\n— $ref', 'Memory verse', isDark),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text('"$verse"',
+              style: TextStyle(
+                  fontStyle: FontStyle.italic,
+                  fontSize: _fontSize,
+                  height: 1.7,
+                  color: isDark ? Colors.white : AppTheme.textPrimary)),
+          if (ref.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text('— $ref',
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.accentGoldDark)),
+            ),
+          ],
+        ],
       ),
     );
   }
+
+  Widget _section({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required bool isDark,
+    required Widget child,
+    Widget? trailing,
+  }) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: iconColor, size: 18),
+              const SizedBox(width: 8),
+              Text(label,
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                      color: iconColor,
+                      letterSpacing: 1.2)),
+              if (trailing != null) ...[
+                const Spacer(),
+                trailing,
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _copyBtn(String text, String label, bool isDark) {
+    return IconButton(
+      icon: Icon(Icons.copy,
+          size: 16,
+          color: isDark ? Colors.white38 : AppTheme.textHint),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      onPressed: () => _copyToClipboard(text, label),
+      tooltip: 'Copy',
+    );
+  }
+
+  Widget _buildChip(String label, Color textColor, Color bgColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+          color: bgColor, borderRadius: BorderRadius.circular(20)),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: textColor)),
+    );
+  }
+
+  String _formatDate(String s) {
+    try {
+      final d = DateTime.parse(s);
+      const m = [
+        'Jan','Feb','Mar','Apr','May','Jun',
+        'Jul','Aug','Sep','Oct','Nov','Dec'
+      ];
+      return '${d.day} ${m[d.month - 1]} ${d.year}';
+    } catch (_) {
+      return s;
+    }
+  }
+
+  /// Remove null/empty/"null" values
+  String? _cleanField(dynamic v) {
+    if (v == null) return null;
+    final s = v.toString().trim();
+    if (s.isEmpty || s.toLowerCase() == 'null') return null;
+    return s;
+  }
+
+  /// Parse outline JSON string into list of {order, heading, body}
+  List<Map<String, dynamic>> _parseOutline(dynamic raw) {
+    if (raw == null) return [];
+    try {
+      final str = raw.toString().trim();
+      if (str.isEmpty) return [];
+      final decoded = json.decode(str);
+      if (decoded is List) {
+        return decoded
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      }
+    } catch (_) {}
+    return [];
+  }
 }
-
-

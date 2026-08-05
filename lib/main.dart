@@ -11,7 +11,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'services/bible_loader_service.dart';
-import 'services/lessons_loader_service.dart';
+import 'services/manuals_loader_service.dart';
 import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 
@@ -87,19 +87,13 @@ class _AppRouterState extends ConsumerState<AppRouter> {
 
   Future<void> _initializeApp() async {
     setState(() => _statusText = 'Preparing Bible...');
-
-    // Load bundled Bibles into Hive (skips if already loaded)
     await BibleLoaderService.ensureBiblesLoaded();
 
-    setState(() => _statusText = 'Preparing lessons...');
+    setState(() => _statusText = 'Preparing manuals...');
+    await ManualsLoaderService.ensureManualsLoaded();
 
-    // Load bundled lessons into cache (skips if already loaded)
-    await LessonsLoaderService.ensureLessonsLoaded();
-
-    // Check if onboarding was already completed
     final onboardingDone = await OnboardingHelper.isComplete();
 
-    // Minimum splash visibility
     await Future.delayed(const Duration(milliseconds: 800));
 
     if (!mounted) return;
@@ -112,12 +106,10 @@ class _AppRouterState extends ConsumerState<AppRouter> {
 
   @override
   Widget build(BuildContext context) {
-    // Show splash until Bible + lessons + onboarding check done
     if (!_splashDone) {
       return _SplashBody(statusText: _statusText);
     }
 
-    // Show onboarding on first launch only
     if (!_onboardingComplete) {
       return OnboardingScreen(
         onComplete: () {
@@ -126,27 +118,22 @@ class _AppRouterState extends ConsumerState<AppRouter> {
       );
     }
 
-    // Watch auth state
     final authState = ref.watch(authProvider);
 
-    // Auth still checking local storage
     if (authState.isUnknown) {
       return const _SplashBody(statusText: 'Checking session...');
     }
 
-    // Logged in → Home
     if (authState.isAuthenticated) {
       return const HomeScreen();
     }
 
-    // Not logged in → Login
     return const LoginScreen();
   }
 }
 
 // ─────────────────────────────────────────────────────────
 // _SplashBody — Original splash design preserved
-// L.I.A CONCEPT badge at bottom RIGHT
 // ─────────────────────────────────────────────────────────
 class _SplashBody extends StatelessWidget {
   final String statusText;
@@ -236,7 +223,6 @@ class _SplashBody extends StatelessWidget {
                 ],
               ),
             ),
-            // L.I.A CONCEPT badge — bottom RIGHT
             const Positioned(
               right: 16,
               bottom: 16,
@@ -250,7 +236,7 @@ class _SplashBody extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────
-// LiaConceptBadge — original design preserved
+// LiaConceptBadge
 // ─────────────────────────────────────────────────────────
 class LiaConceptBadge extends StatelessWidget {
   const LiaConceptBadge({super.key});
@@ -288,9 +274,6 @@ class LiaConceptBadge extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────
-// _LiaLogoPainter — original neural network logo
-// ─────────────────────────────────────────────────────────
 class _LiaLogoPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {

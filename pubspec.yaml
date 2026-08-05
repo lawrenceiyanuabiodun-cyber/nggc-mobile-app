@@ -83,7 +83,7 @@ flutter:
   assets:
     - assets/images/
     - assets/bibles/
-    - assets/lessons/
+    - assets/manuals/
 
   fonts:
     - family: Poppins

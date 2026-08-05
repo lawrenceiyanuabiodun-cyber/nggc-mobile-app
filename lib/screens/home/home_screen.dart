@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -10,7 +10,7 @@ import '../admin/admin_dashboard_screen.dart';
 import '../announcements/announcements_screen.dart';
 import '../bible/bible_language_screen.dart';
 import '../events/events_screen.dart';
-import '../lessons/lessons_screen.dart';
+import '../manuals/manuals_screen.dart';
 import '../profile/profile_screen.dart';
 
 // ─────────────────────────────────────────────────────────
@@ -417,11 +417,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onTap: () => _navigateTo(const BibleLanguageScreen()),
       ),
       _FeatureItem(
-        icon: Icons.school_outlined,
-        label: 'Lessons',
-        subtitle: 'Study Materials',
+        icon: Icons.import_contacts,
+        label: 'Manuals',
+        subtitle: 'Sunday School Books',
         color: const Color(0xFF2E7D32),
-        onTap: () => _navigateTo(const LessonsScreen()),
+        onTap: () => _navigateTo(const ManualsScreen()),
       ),
       _FeatureItem(
         icon: Icons.campaign_outlined,
@@ -570,7 +570,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final quarter = lesson['quarter']?.toString() ?? '';
 
     return InkWell(
-      onTap: () => _navigateTo(const LessonsScreen()),
+      onTap: () => _navigateTo(const ManualsScreen()),
       borderRadius: BorderRadius.circular(16),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -583,7 +583,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: AppTheme.primaryBlue.withOpacity(isDark ? 0.25 : 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.school,
+              child: const Icon(Icons.import_contacts,
                   color: AppTheme.primaryBlue, size: 26),
             ),
             const SizedBox(width: 14),
@@ -660,9 +660,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         label: 'Bible',
       ),
       const BottomNavigationBarItem(
-        icon: Icon(Icons.school_outlined),
-        activeIcon: Icon(Icons.school),
-        label: 'Lessons',
+        icon: Icon(Icons.import_contacts_outlined),
+        activeIcon: Icon(Icons.import_contacts),
+        label: 'Manuals',
       ),
       const BottomNavigationBarItem(
         icon: Icon(Icons.person_outline),
@@ -683,7 +683,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       onTap: (index) {
         setState(() => _currentIndex = index);
         if (index == 1) _navigateTo(const BibleLanguageScreen());
-        if (index == 2) _navigateTo(const LessonsScreen());
+        if (index == 2) _navigateTo(const ManualsScreen());
         if (index == 3) _navigateTo(const ProfileScreen());
         if (index == 4 && isAdmin) _navigateTo(const AdminDashboardScreen());
       },
