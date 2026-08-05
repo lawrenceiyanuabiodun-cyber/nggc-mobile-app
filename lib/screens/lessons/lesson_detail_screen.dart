@@ -8,14 +8,10 @@ import '../../services/progress_cache_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common/shimmer_widgets.dart';
 
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────
 // LessonDetailScreen
-// Renders full lesson content from bundled or fetched data:
-// - Title, topic, memory verse, bible passage
-// - Introduction, outline, application, assignment
-// - Discussion questions, conclusion, teacher notes
-// Offline-first: reads bundled Hive cache instantly
-// ─────────────────────────────────────────────────────────
+// Renders full lesson content with language toggle
+// ─────────────────────────────────────────────────────
 class LessonDetailScreen extends StatefulWidget {
   final String lessonId;
   final String title;
@@ -32,8 +28,11 @@ class LessonDetailScreen extends StatefulWidget {
 
 class _LessonDetailScreenState extends State<LessonDetailScreen> {
   Map<String, dynamic>? _lesson;
+  Map<String, dynamic>? _siblingLesson;
   bool _isLoading = true;
   String? _error;
+  late String _currentLessonId;
+  late String _currentTitle;
 
   bool _isFavorited = false;
   bool _favoriteLoading = false;
@@ -45,6 +44,8 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _currentLessonId = widget.lessonId;
+    _currentTitle = widget.title;
     _loadLesson();
     _checkFavorite();
     _trackProgress();
@@ -53,33 +54,38 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   Future<void> _loadLesson() async {
     setState(() { _isLoading = true; _error = null; });
 
-    // STEP 1: Load from bundled/cached Hive instantly
-    final cached = ManualsLoaderService.getFullLesson(widget.lessonId);
+    final cached = ManualsLoaderService.getFullLesson(_currentLessonId);
     if (cached != null) {
       setState(() {
         _lesson = cached;
+        _siblingLesson = ManualsLoaderService.findSiblingLesson(cached);
         _isLoading = false;
       });
     }
 
-    // STEP 2: Refresh from API in background
     try {
       final response =
-          await ApiService.get('/lessons/${widget.lessonId}/full');
+          await ApiService.get('/lessons/$_currentLessonId/full');
       if (!mounted) return;
       if (response.isSuccess && response.asMap != null) {
         final data = response.asMap!;
+        Map<String, dynamic>? lesson;
         if (data['lesson'] is Map) {
-          final lesson = Map<String, dynamic>.from(data['lesson'] as Map);
+          lesson = Map<String, dynamic>.from(data['lesson'] as Map);
+        } else if (data['id'] != null) {
+          lesson = Map<String, dynamic>.from(data);
+        }
+        if (lesson != null) {
           await ManualsLoaderService.saveFullLesson(lesson);
           setState(() {
             _lesson = lesson;
+            _siblingLesson = ManualsLoaderService.findSiblingLesson(lesson!);
             _isLoading = false;
           });
         }
       }
     } catch (_) {
-      // Silent — cached data is still shown
+      // Silent - cached data is still shown
     }
 
     if (mounted && _lesson == null) {
@@ -90,9 +96,23 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     }
   }
 
+  /// Switch to the sibling-language version of this lesson
+  Future<void> _switchLanguage() async {
+    if (_siblingLesson == null) return;
+    final sibling = _siblingLesson!;
+    setState(() {
+      _currentLessonId = sibling['id'].toString();
+      _currentTitle = sibling['title']?.toString() ?? _currentTitle;
+      _lesson = sibling;
+      _siblingLesson = ManualsLoaderService.findSiblingLesson(sibling);
+    });
+    _checkFavorite();
+    _trackProgress();
+  }
+
   Future<void> _checkFavorite() async {
     final response =
-        await ApiService.get('/favorites/check/${widget.lessonId}');
+        await ApiService.get('/favorites/check/$_currentLessonId');
     if (!mounted) return;
     if (response.isSuccess && response.asMap != null) {
       setState(() {
@@ -104,10 +124,10 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   }
 
   Future<void> _trackProgress() async {
-    await ProgressCacheService.saveProgress(widget.lessonId, 50);
+    await ProgressCacheService.saveProgress(_currentLessonId, 50);
     try {
       await ApiService.post('/progress/', body: {
-        'lesson_id': widget.lessonId,
+        'lesson_id': _currentLessonId,
         'progress_percentage': 50,
         'is_completed': false,
       });
@@ -115,16 +135,16 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   }
 
   Future<void> _markAsComplete() async {
-    await ProgressCacheService.saveProgress(widget.lessonId, 100);
+    await ProgressCacheService.saveProgress(_currentLessonId, 100);
     try {
       await ApiService.post('/progress/', body: {
-        'lesson_id': widget.lessonId,
+        'lesson_id': _currentLessonId,
         'progress_percentage': 100,
         'is_completed': true,
       });
     } catch (_) {}
     if (mounted) {
-      _showSnack('Lesson marked as complete ✓', AppTheme.successGreen);
+      _showSnack('Lesson marked as complete', AppTheme.successGreen);
       setState(() {});
     }
   }
@@ -140,7 +160,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
       }
     } else {
       final response = await ApiService.post('/favorites/',
-          body: {'lesson_id': widget.lessonId});
+          body: {'lesson_id': _currentLessonId});
       if (!mounted) return;
       if (response.isSuccess) {
         setState(() {
@@ -148,7 +168,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
           _favoriteId = response.asMap?['id']?.toString() ??
               response.asMap?['favorite_id']?.toString();
         });
-        _showSnack('Added to favorites ❤️', AppTheme.errorRed);
+        _showSnack('Added to favorites', AppTheme.errorRed);
       }
     }
     if (mounted) setState(() => _favoriteLoading = false);
@@ -201,7 +221,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                       color: AppTheme.accentGoldDark, size: 22),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text('Note on: ${widget.title}',
+                    child: Text('Note on: $_currentTitle',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
@@ -282,11 +302,11 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   Future<void> _saveNote(String content) async {
     setState(() => _noteLoading = true);
     final response = await ApiService.post('/notes/',
-        body: {'lesson_id': widget.lessonId, 'content': content});
+        body: {'lesson_id': _currentLessonId, 'content': content});
     if (!mounted) return;
     setState(() => _noteLoading = false);
     if (response.isSuccess) {
-      _showSnack('Note saved! ✏️', AppTheme.successGreen);
+      _showSnack('Note saved!', AppTheme.successGreen);
     } else {
       _showSnack(response.error ?? 'Failed to save note', AppTheme.errorRed);
     }
@@ -311,12 +331,12 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        title:
-            Text(widget.title, style: const TextStyle(fontSize: 14)),
+        title: Text(_currentTitle, style: const TextStyle(fontSize: 14)),
         backgroundColor: AppTheme.primaryBlue,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
+          if (_siblingLesson != null) _buildLanguageSwitchButton(),
           IconButton(
             icon: const Icon(Icons.text_decrease, size: 20),
             onPressed: () =>
@@ -377,6 +397,45 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     );
   }
 
+  /// Language switch button in app bar
+  Widget _buildLanguageSwitchButton() {
+    final sibling = _siblingLesson!;
+    final siblingLang =
+        sibling['language']?.toString().toLowerCase() ?? 'english';
+    final label = siblingLang == 'yoruba' ? 'YO' : 'EN';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      child: InkWell(
+        onTap: _switchLanguage,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppTheme.accentGold.withOpacity(0.25),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppTheme.accentGold, width: 1),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.translate,
+                  color: AppTheme.accentGold, size: 14),
+              const SizedBox(width: 4),
+              Text(label,
+                  style: const TextStyle(
+                      color: AppTheme.accentGold,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildError(bool isDark) {
     return Center(
       child: Padding(
@@ -418,7 +477,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   Widget _buildContent(bool isDark) {
     final lesson = _lesson!;
 
-    final String title = lesson['title']?.toString() ?? widget.title;
+    final String title = lesson['title']?.toString() ?? _currentTitle;
     final String topic = lesson['topic']?.toString() ?? '';
     final String biblePassage =
         lesson['bible_passage']?.toString() ?? '';
@@ -451,15 +510,15 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     final String lessonDate =
         lesson['lesson_date']?.toString() ?? '';
 
-    // Parse outline JSON array
-    final List<Map<String, dynamic>> outlineList = _parseOutline(lesson['outline']);
+    final List<Map<String, dynamic>> outlineList =
+        _parseOutline(lesson['outline']);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 120),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Header card ──
+          // Header card
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(18),
@@ -513,7 +572,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
 
           const SizedBox(height: 18),
 
-          // ── Aim ──
           if (aim.isNotEmpty)
             _section(
               icon: Icons.flag_outlined,
@@ -528,7 +586,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                       height: 1.6)),
             ),
 
-          // ── Central Truth ──
           if (centralTruth.isNotEmpty)
             _section(
               icon: Icons.stars_outlined,
@@ -542,7 +599,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                       height: 1.6)),
             ),
 
-          // ── Bible Passage ──
           if (biblePassage.isNotEmpty)
             _section(
               icon: Icons.menu_book,
@@ -559,11 +615,9 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                       height: 1.5)),
             ),
 
-          // ── Memory Verse ──
           if (memoryVerse.isNotEmpty)
             _memoryVerseCard(memoryVerse, memoryVerseRef, isDark),
 
-          // ── Golden Text (if separate from memory verse) ──
           if (goldenText.isNotEmpty && goldenText != memoryVerse)
             _section(
               icon: Icons.format_quote,
@@ -585,7 +639,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                     const SizedBox(height: 8),
                     Align(
                       alignment: Alignment.centerRight,
-                      child: Text('— $goldenTextRef',
+                      child: Text('- $goldenTextRef',
                           style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -596,7 +650,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
               ),
             ),
 
-          // ── Objectives ──
           if (objectives.isNotEmpty)
             _section(
               icon: Icons.checklist_outlined,
@@ -610,7 +663,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                       height: 1.7)),
             ),
 
-          // ── Introduction ──
           if (introduction.isNotEmpty)
             _section(
               icon: Icons.article_outlined,
@@ -624,7 +676,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                       height: 1.7)),
             ),
 
-          // ── Outline ──
           if (outlineList.isNotEmpty)
             _section(
               icon: Icons.format_list_numbered,
@@ -701,7 +752,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
               ),
             ),
 
-          // ── Application ──
           if (application.isNotEmpty)
             _section(
               icon: Icons.lightbulb_outline,
@@ -715,7 +765,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                       height: 1.7)),
             ),
 
-          // ── Discussion Questions ──
           if (discussionQuestions.isNotEmpty)
             _section(
               icon: Icons.help_outline,
@@ -729,7 +778,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                       height: 1.7)),
             ),
 
-          // ── Conclusion ──
           if (conclusion.isNotEmpty)
             _section(
               icon: Icons.done_all,
@@ -743,7 +791,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                       height: 1.7)),
             ),
 
-          // ── Assignment ──
           if (assignment.isNotEmpty)
             _section(
               icon: Icons.assignment_outlined,
@@ -757,7 +804,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                       height: 1.7)),
             ),
 
-          // ── Teacher Notes ──
           if (teacherNotes.isNotEmpty)
             _section(
               icon: Icons.person_outline,
@@ -776,13 +822,12 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
 
           const SizedBox(height: 30),
 
-          // ── Bottom action ──
           Center(
             child: Column(
               children: [
                 const Divider(),
                 const SizedBox(height: 16),
-                if (!ProgressCacheService.isCompleted(widget.lessonId))
+                if (!ProgressCacheService.isCompleted(_currentLessonId))
                   ElevatedButton.icon(
                     onPressed: _markAsComplete,
                     icon: const Icon(Icons.check_circle_outline),
@@ -843,7 +888,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     );
   }
 
-  // ── Memory verse special card ─────────────────────────
   Widget _memoryVerseCard(String verse, String ref, bool isDark) {
     return Container(
       width: double.infinity,
@@ -869,7 +913,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                       color: AppTheme.accentGoldDark,
                       letterSpacing: 1.2)),
               const Spacer(),
-              _copyBtn('"$verse"\n— $ref', 'Memory verse', isDark),
+              _copyBtn('"$verse"\n- $ref', 'Memory verse', isDark),
             ],
           ),
           const SizedBox(height: 10),
@@ -883,7 +927,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
             const SizedBox(height: 10),
             Align(
               alignment: Alignment.centerRight,
-              child: Text('— $ref',
+              child: Text('- $ref',
                   style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
@@ -982,7 +1026,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     }
   }
 
-  /// Remove null/empty/"null" values
   String? _cleanField(dynamic v) {
     if (v == null) return null;
     final s = v.toString().trim();
@@ -990,7 +1033,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     return s;
   }
 
-  /// Parse outline JSON string into list of {order, heading, body}
   List<Map<String, dynamic>> _parseOutline(dynamic raw) {
     if (raw == null) return [];
     try {

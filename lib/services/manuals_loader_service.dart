@@ -3,11 +3,11 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// ─────────────────────────────────────────────────────────
+/// ─────────────────────────────────────────────────────
 /// ManualsLoaderService
 /// Loads bundled manuals.json + lessons_full.json into Hive
 /// on first launch for instant offline-first access.
-/// ─────────────────────────────────────────────────────────
+/// ─────────────────────────────────────────────────────
 class ManualsLoaderService {
   ManualsLoaderService._();
 
@@ -15,9 +15,9 @@ class ManualsLoaderService {
   static const String _lessonsBoxName = 'lessons_full_cache';
 
   // Bump this when data content changes to force reload
-  static const String _loadedFlag = 'manuals_bundled_v1';
+  static const String _loadedFlag = 'manuals_bundled_v2';
 
-  /// Main entry — call from splash
+  /// Main entry - call from splash
   static Future<bool> ensureManualsLoaded() async {
     final prefs = await SharedPreferences.getInstance();
     final alreadyLoaded = prefs.getBool(_loadedFlag) ?? false;
@@ -35,41 +35,55 @@ class ManualsLoaderService {
       return true;
     } catch (e) {
       // ignore: avoid_print
-      print('❌ Manuals loading failed: $e');
+      print('Manuals loading failed: $e');
       return false;
     }
   }
 
   /// Load bundled manuals.json into Hive
+  /// Handles BOTH raw array [] and wrapped { manuals: [] } formats
   static Future<void> _loadManuals() async {
-    final jsonString = await rootBundle.loadString('assets/manuals/manuals.json');
-    final Map<String, dynamic> root = json.decode(jsonString);
+    final jsonString =
+        await rootBundle.loadString('assets/manuals/manuals.json');
+    final dynamic root = json.decode(jsonString);
 
     final box = Hive.box(_manualsBoxName);
     await box.clear();
 
-    if (root['manuals'] is List) {
-      final List manuals = root['manuals'];
-      for (final m in manuals) {
-        if (m is Map && m['id'] != null) {
-          final id = m['id'].toString();
-          await box.put(id, json.encode(m));
-        }
+    List manuals = [];
+    if (root is List) {
+      manuals = root;
+    } else if (root is Map && root['manuals'] is List) {
+      manuals = root['manuals'];
+    }
+
+    for (final m in manuals) {
+      if (m is Map && m['id'] != null) {
+        final id = m['id'].toString();
+        await box.put(id, json.encode(m));
       }
     }
 
     // ignore: avoid_print
-    print('✅ Manuals loaded: ${box.length}');
+    print('Manuals loaded: ${box.length}');
   }
 
   /// Load bundled lessons_full.json into Hive
+  /// Handles BOTH raw array [] and wrapped { lessons: [] } formats
   static Future<void> _loadLessons() async {
     final jsonString =
         await rootBundle.loadString('assets/manuals/lessons_full.json');
-    final List<dynamic> lessons = json.decode(jsonString);
+    final dynamic root = json.decode(jsonString);
 
     final box = Hive.box(_lessonsBoxName);
     await box.clear();
+
+    List lessons = [];
+    if (root is List) {
+      lessons = root;
+    } else if (root is Map && root['lessons'] is List) {
+      lessons = root['lessons'];
+    }
 
     for (final l in lessons) {
       if (l is Map && l['id'] != null) {
@@ -79,12 +93,12 @@ class ManualsLoaderService {
     }
 
     // ignore: avoid_print
-    print('✅ Full lessons loaded: ${box.length}');
+    print('Full lessons loaded: ${box.length}');
   }
 
-  // ─────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────
   // READ API
-  // ─────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────
 
   /// Get all manuals sorted by year (newest first) then period
   static List<Map<String, dynamic>> getAllManuals() {
@@ -100,7 +114,6 @@ class ManualsLoaderService {
         } catch (_) {}
       }
     }
-    // Sort newest first
     list.sort((a, b) {
       final ya = (a['year'] as num?)?.toInt() ?? 0;
       final yb = (b['year'] as num?)?.toInt() ?? 0;
@@ -182,5 +195,52 @@ class ManualsLoaderService {
         await box.put(m['id'].toString(), json.encode(m));
       }
     }
+  }
+
+  // ─────────────────────────────────────────────────
+  // LANGUAGE SWITCH — find sibling lesson in other language
+  // ─────────────────────────────────────────────────
+
+  /// Given a lesson, find its equivalent in the sibling (other-language) manual.
+  /// Match rule: same lesson_number in the parent/child manual.
+  /// Returns null if no sibling found.
+  static Map<String, dynamic>? findSiblingLesson(
+      Map<String, dynamic> currentLesson) {
+    final currentManualId = currentLesson['manual_id']?.toString();
+    final currentLessonNumber =
+        (currentLesson['lesson_number'] as num?)?.toInt();
+
+    if (currentManualId == null || currentLessonNumber == null) return null;
+
+    final currentManual = getManual(currentManualId);
+    if (currentManual == null) return null;
+
+    // Determine sibling manual id
+    String? siblingManualId;
+    final parentId = currentManual['parent_manual_id'];
+
+    if (parentId != null) {
+      // Current is a child (yoruba) → sibling is its parent (english)
+      siblingManualId = parentId.toString();
+    } else {
+      // Current is a parent (english) → sibling is the child pointing to it
+      final all = getAllManuals();
+      for (final m in all) {
+        if (m['parent_manual_id']?.toString() == currentManualId) {
+          siblingManualId = m['id']?.toString();
+          break;
+        }
+      }
+    }
+
+    if (siblingManualId == null) return null;
+
+    // Find lesson with same lesson_number in sibling manual
+    final siblingLessons = getLessonsForManual(siblingManualId);
+    for (final l in siblingLessons) {
+      final ln = (l['lesson_number'] as num?)?.toInt();
+      if (ln == currentLessonNumber) return l;
+    }
+    return null;
   }
 }

@@ -1,1 +1,106 @@
-﻿{"success":true,"count":8,"manuals":[{"id":24,"title":"New Generation Sunday School Jul-Dec 2026","year":2026,"period":"Q3 2026","description":"Imported from JUL - DEC 2026 SUNDAY SCHOOL II_english.docx","cover_image":null,"is_active":true,"created_at":"2026-07-18T09:27:13.190379+00:00","updated_at":"2026-07-18T09:27:13.190379+00:00","language":"english","parent_manual_id":null},{"id":25,"title":"New Generation Sunday School Jul-Dec 2026 (Yoruba)","year":2026,"period":"Q3 2026","description":"Imported from JUL - DEC 2026 SUNDAY SCHOOL II_yoruba.docx","cover_image":null,"is_active":true,"created_at":"2026-07-18T09:27:19.606833+00:00","updated_at":"2026-07-18T09:27:19.606833+00:00","language":"yoruba","parent_manual_id":24},{"id":26,"title":"New Generation Sunday School Jan-Jun 2026 (Yoruba)","year":2026,"period":"Q1 2026","description":"Imported from YORUBA JAN - JUN 2026 SUNDAY SCHOOL.docx","cover_image":null,"is_active":true,"created_at":"2026-07-18T09:27:27.586219+00:00","updated_at":"2026-07-18T09:27:27.586219+00:00","language":"yoruba","parent_manual_id":22},{"id":22,"title":"New Generation Sunday School Jan-Jun 2026","year":2026,"period":"Q1 2026","description":"Imported from JAN - JUN 2026 SUNDAY SCHOOL 1.docx","cover_image":null,"is_active":true,"created_at":"2026-07-18T09:26:57.32283+00:00","updated_at":"2026-07-18T09:26:57.32283+00:00","language":"english","parent_manual_id":null},{"id":27,"title":"New Generation Sunday School Jul-Dec 2025 (Yoruba)","year":2025,"period":"Q3 2025","description":"Imported from YORUBA JUL - DEC 2025 SUNDAY SCHOOL.docx","cover_image":null,"is_active":true,"created_at":"2026-07-18T09:27:34.974971+00:00","updated_at":"2026-07-18T09:27:34.974971+00:00","language":"yoruba","parent_manual_id":23},{"id":21,"title":"New Generation Sunday School Jan-Jun 2025 (Interpretation)","year":2025,"period":"Q1 2025","description":"Imported from JAN - JUN 2025 SUNDAY SCHOOL INTERPRETATION.docx","cover_image":null,"is_active":true,"created_at":"2026-07-18T09:26:50.029099+00:00","updated_at":"2026-07-18T09:26:50.029099+00:00","language":"yoruba","parent_manual_id":20},{"id":23,"title":"New Generation Sunday School Jul-Dec 2025","year":2025,"period":"Q3 2025","description":"Imported from JUL - DEC 2025 SUNDAY SCHOOL.docx","cover_image":null,"is_active":true,"created_at":"2026-07-18T09:27:05.200584+00:00","updated_at":"2026-07-18T09:27:05.200584+00:00","language":"english","parent_manual_id":null},{"id":20,"title":"New Generation Sunday School Jan-Jun 2025","year":2025,"period":"Q1 2025","description":"Imported from JAN - JUN 2025 SUNDAY SCHOOL 1-2 (1).docx","cover_image":null,"is_active":true,"created_at":"2026-07-18T09:26:41.395401+00:00","updated_at":"2026-07-18T09:26:41.395401+00:00","language":"english","parent_manual_id":null}]}
+﻿[
+    {
+        "id":  24,
+        "title":  "New Generation Sunday School Jul-Dec 2026",
+        "year":  2026,
+        "period":  "Q3 2026",
+        "description":  "Imported from JUL - DEC 2026 SUNDAY SCHOOL II_english.docx",
+        "cover_image":  null,
+        "is_active":  true,
+        "created_at":  "2026-07-18T09:27:13.190379+00:00",
+        "updated_at":  "2026-07-18T09:27:13.190379+00:00",
+        "language":  "english",
+        "parent_manual_id":  null
+    },
+    {
+        "id":  25,
+        "title":  "New Generation Sunday School Jul-Dec 2026 (Yoruba)",
+        "year":  2026,
+        "period":  "Q3 2026",
+        "description":  "Imported from JUL - DEC 2026 SUNDAY SCHOOL II_yoruba.docx",
+        "cover_image":  null,
+        "is_active":  true,
+        "created_at":  "2026-07-18T09:27:19.606833+00:00",
+        "updated_at":  "2026-07-18T09:27:19.606833+00:00",
+        "language":  "yoruba",
+        "parent_manual_id":  24
+    },
+    {
+        "id":  26,
+        "title":  "New Generation Sunday School Jan-Jun 2026 (Yoruba)",
+        "year":  2026,
+        "period":  "Q1 2026",
+        "description":  "Imported from YORUBA JAN - JUN 2026 SUNDAY SCHOOL.docx",
+        "cover_image":  null,
+        "is_active":  true,
+        "created_at":  "2026-07-18T09:27:27.586219+00:00",
+        "updated_at":  "2026-07-18T09:27:27.586219+00:00",
+        "language":  "yoruba",
+        "parent_manual_id":  22
+    },
+    {
+        "id":  22,
+        "title":  "New Generation Sunday School Jan-Jun 2026",
+        "year":  2026,
+        "period":  "Q1 2026",
+        "description":  "Imported from JAN - JUN 2026 SUNDAY SCHOOL 1.docx",
+        "cover_image":  null,
+        "is_active":  true,
+        "created_at":  "2026-07-18T09:26:57.32283+00:00",
+        "updated_at":  "2026-07-18T09:26:57.32283+00:00",
+        "language":  "english",
+        "parent_manual_id":  null
+    },
+    {
+        "id":  27,
+        "title":  "New Generation Sunday School Jul-Dec 2025 (Yoruba)",
+        "year":  2025,
+        "period":  "Q3 2025",
+        "description":  "Imported from YORUBA JUL - DEC 2025 SUNDAY SCHOOL.docx",
+        "cover_image":  null,
+        "is_active":  true,
+        "created_at":  "2026-07-18T09:27:34.974971+00:00",
+        "updated_at":  "2026-07-18T09:27:34.974971+00:00",
+        "language":  "yoruba",
+        "parent_manual_id":  23
+    },
+    {
+        "id":  21,
+        "title":  "New Generation Sunday School Jan-Jun 2025 (Interpretation)",
+        "year":  2025,
+        "period":  "Q1 2025",
+        "description":  "Imported from JAN - JUN 2025 SUNDAY SCHOOL INTERPRETATION.docx",
+        "cover_image":  null,
+        "is_active":  true,
+        "created_at":  "2026-07-18T09:26:50.029099+00:00",
+        "updated_at":  "2026-07-18T09:26:50.029099+00:00",
+        "language":  "yoruba",
+        "parent_manual_id":  20
+    },
+    {
+        "id":  23,
+        "title":  "New Generation Sunday School Jul-Dec 2025",
+        "year":  2025,
+        "period":  "Q3 2025",
+        "description":  "Imported from JUL - DEC 2025 SUNDAY SCHOOL.docx",
+        "cover_image":  null,
+        "is_active":  true,
+        "created_at":  "2026-07-18T09:27:05.200584+00:00",
+        "updated_at":  "2026-07-18T09:27:05.200584+00:00",
+        "language":  "english",
+        "parent_manual_id":  null
+    },
+    {
+        "id":  20,
+        "title":  "New Generation Sunday School Jan-Jun 2025",
+        "year":  2025,
+        "period":  "Q1 2025",
+        "description":  "Imported from JAN - JUN 2025 SUNDAY SCHOOL 1-2 (1).docx",
+        "cover_image":  null,
+        "is_active":  true,
+        "created_at":  "2026-07-18T09:26:41.395401+00:00",
+        "updated_at":  "2026-07-18T09:26:41.395401+00:00",
+        "language":  "english",
+        "parent_manual_id":  null
+    }
+]
