@@ -16,10 +16,6 @@ workflows:
       java: 17
       groups:
         - github_release
-      vars:
-        GITHUB_REPO: "lawrenceiyanuabiodun-cyber/nggc-mobile-app"
-        RELEASE_TAG: "v1.0.0"
-        APK_NAME: "NGGC.APP.apk"
 
     scripts:
       - name: Set up local.properties
@@ -42,67 +38,117 @@ workflows:
 
       - name: Rename APK
         script: |
-          cp build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/$APK_NAME"
+          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/NGGC.APP.apk
           ls -lh build/app/outputs/flutter-apk/
 
       - name: Upload APK to GitHub Release
         script: |
           set -e
-          echo "=== Auto-uploading $APK_NAME to GitHub release $RELEASE_TAG ==="
 
-          APK_PATH="build/app/outputs/flutter-apk/$APK_NAME"
+          APK_NAME="NGGC.APP.apk"
+          GITHUB_REPO="lawrenceiyanuabiodun-cyber/nggc-mobile-app"
+          RELEASE_TAG="v1.0.0"
+          APK_PATH="build/app/outputs/flutter-apk/NGGC.APP.apk"
+
+          echo "=== Upload Step Starting ==="
+          echo "APK_NAME    : $APK_NAME"
+          echo "GITHUB_REPO : $GITHUB_REPO"
+          echo "RELEASE_TAG : $RELEASE_TAG"
+          echo "APK_PATH    : $APK_PATH"
+
+          if [ -z "$GITHUB_TOKEN" ]; then
+            echo "ERROR: GITHUB_TOKEN is empty! Check Codemagic env group: github_release"
+            exit 1
+          fi
+          echo "GITHUB_TOKEN: [set, length ${#GITHUB_TOKEN}]"
 
           if [ ! -f "$APK_PATH" ]; then
             echo "ERROR: APK not found at $APK_PATH"
             exit 1
           fi
+          echo "APK found: $(du -h $APK_PATH | cut -f1)"
 
-          AUTH="Authorization: token $GITHUB_TOKEN"
-          ACCEPT="Accept: application/vnd.github+json"
           API="https://api.github.com/repos/$GITHUB_REPO"
 
-          echo "Fetching release info for tag $RELEASE_TAG..."
-          RELEASE_JSON=$(curl -sS -H "$AUTH" -H "$ACCEPT" "$API/releases/tags/$RELEASE_TAG")
+          echo "--- Fetching release ID for tag $RELEASE_TAG ---"
+          RELEASE_JSON=$(curl -sS \
+            --header "Authorization: token $GITHUB_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            "$API/releases/tags/$RELEASE_TAG")
+
+          echo "Release JSON (first 200 chars):"
+          echo "$RELEASE_JSON" | head -c 200
+
           RELEASE_ID=$(echo "$RELEASE_JSON" | grep -o '"id": *[0-9]*' | head -n1 | grep -o '[0-9]*')
 
           if [ -z "$RELEASE_ID" ]; then
-            echo "Release $RELEASE_TAG not found. Creating it..."
-            CREATE_PAYLOAD="{\"tag_name\":\"$RELEASE_TAG\",\"name\":\"NGGC App $RELEASE_TAG\",\"body\":\"Auto-built by Codemagic\"}"
-            CREATE_JSON=$(curl -sS -X POST -H "$AUTH" -H "$ACCEPT" "$API/releases" -d "$CREATE_PAYLOAD")
+            echo "--- Release not found. Creating release $RELEASE_TAG ---"
+            CREATE_JSON=$(curl -sS -X POST \
+              --header "Authorization: token $GITHUB_TOKEN" \
+              --header "Accept: application/vnd.github+json" \
+              --header "Content-Type: application/json" \
+              --data "{\"tag_name\":\"$RELEASE_TAG\",\"name\":\"NGGC App $RELEASE_TAG\",\"body\":\"Auto-built by Codemagic\"}" \
+              "$API/releases")
+            echo "Create response: $CREATE_JSON" | head -c 200
             RELEASE_ID=$(echo "$CREATE_JSON" | grep -o '"id": *[0-9]*' | head -n1 | grep -o '[0-9]*')
           fi
 
           if [ -z "$RELEASE_ID" ]; then
             echo "ERROR: Could not get or create release ID"
-            echo "Response: $RELEASE_JSON"
             exit 1
           fi
-
           echo "Release ID: $RELEASE_ID"
 
-          echo "Checking for existing asset named $APK_NAME..."
-          ASSETS_JSON=$(curl -sS -H "$AUTH" -H "$ACCEPT" "$API/releases/$RELEASE_ID/assets")
-          OLD_ASSET_ID=$(echo "$ASSETS_JSON" | tr ',' '\n' | grep -B1 "\"name\": *\"$APK_NAME\"" | grep -o '"id": *[0-9]*' | head -n1 | grep -o '[0-9]*')
+          echo "--- Checking for existing asset $APK_NAME ---"
+          ASSETS_JSON=$(curl -sS \
+            --header "Authorization: token $GITHUB_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            "$API/releases/$RELEASE_ID/assets")
+
+          OLD_ASSET_ID=$(echo "$ASSETS_JSON" | grep -o '"id":[0-9]*,"url":"[^"]*","browser_download_url":"[^"]*","name":"NGGC\.APP\.apk"' | grep -o '"id":[0-9]*' | grep -o '[0-9]*' | head -n1)
+
+          if [ -z "$OLD_ASSET_ID" ]; then
+            OLD_ASSET_ID=$(echo "$ASSETS_JSON" | python3 -c "
+          import sys, json
+          try:
+            assets = json.load(sys.stdin)
+            for a in assets:
+              if a.get('name') == 'NGGC.APP.apk':
+                print(a['id'])
+                break
+          except:
+            pass
+          " 2>/dev/null || echo "")
+          fi
 
           if [ -n "$OLD_ASSET_ID" ]; then
             echo "Deleting old asset ID $OLD_ASSET_ID..."
-            curl -sS -X DELETE -H "$AUTH" "$API/releases/assets/$OLD_ASSET_ID"
+            curl -sS -X DELETE \
+              --header "Authorization: token $GITHUB_TOKEN" \
+              "$API/releases/assets/$OLD_ASSET_ID"
             echo "Old asset deleted."
           else
-            echo "No existing asset to delete."
+            echo "No existing asset found."
           fi
 
-          echo "Uploading new APK ($(du -h $APK_PATH | cut -f1))..."
+          echo "--- Uploading APK ---"
           UPLOAD_URL="https://uploads.github.com/repos/$GITHUB_REPO/releases/$RELEASE_ID/assets?name=$APK_NAME"
-          curl -sS -X POST \
-            -H "$AUTH" \
-            -H "Content-Type: application/vnd.android.package-archive" \
-            --data-binary @"$APK_PATH" \
-            "$UPLOAD_URL" > /dev/null
 
-          echo ""
-          echo "=== SUCCESS! ==="
-          echo "Download URL: https://github.com/$GITHUB_REPO/releases/download/$RELEASE_TAG/$APK_NAME"
+          UPLOAD_RESPONSE=$(curl -sS -X POST \
+            --header "Authorization: token $GITHUB_TOKEN" \
+            --header "Content-Type: application/vnd.android.package-archive" \
+            --data-binary @"$APK_PATH" \
+            "$UPLOAD_URL")
+
+          echo "Upload response: $UPLOAD_RESPONSE" | head -c 300
+
+          if echo "$UPLOAD_RESPONSE" | grep -q '"state":"uploaded"'; then
+            echo ""
+            echo "=== SUCCESS! ==="
+            echo "https://github.com/$GITHUB_REPO/releases/download/$RELEASE_TAG/$APK_NAME"
+          else
+            echo "WARNING: Upload response did not confirm success. Check above."
+          fi
 
     artifacts:
       - build/**/outputs/**/*.apk
