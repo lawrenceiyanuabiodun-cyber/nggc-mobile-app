@@ -1,18 +1,21 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/manuals_loader_service.dart';
 import '../../services/progress_cache_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common/shimmer_widgets.dart';
+import '../../widgets/lessons/bible_passage_popup.dart';
 
-// ─────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────
 // LessonDetailScreen
 // Renders full lesson content with language toggle
-// ─────────────────────────────────────────────────────
-class LessonDetailScreen extends StatefulWidget {
+// ─────────────────────────────────────────────────────────
+class LessonDetailScreen extends ConsumerStatefulWidget {
   final String lessonId;
   final String title;
 
@@ -23,10 +26,12 @@ class LessonDetailScreen extends StatefulWidget {
   });
 
   @override
-  State<LessonDetailScreen> createState() => _LessonDetailScreenState();
+  ConsumerState<LessonDetailScreen> createState() =>
+      _LessonDetailScreenState();
 }
 
-class _LessonDetailScreenState extends State<LessonDetailScreen> {
+class _LessonDetailScreenState
+    extends ConsumerState<LessonDetailScreen> {
   Map<String, dynamic>? _lesson;
   Map<String, dynamic>? _siblingLesson;
   bool _isLoading = true;
@@ -79,14 +84,13 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
           await ManualsLoaderService.saveFullLesson(lesson);
           setState(() {
             _lesson = lesson;
-            _siblingLesson = ManualsLoaderService.findSiblingLesson(lesson!);
+            _siblingLesson =
+                ManualsLoaderService.findSiblingLesson(lesson!);
             _isLoading = false;
           });
         }
       }
-    } catch (_) {
-      // Silent - cached data is still shown
-    }
+    } catch (_) {}
 
     if (mounted && _lesson == null) {
       setState(() {
@@ -96,7 +100,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     }
   }
 
-  /// Switch to the sibling-language version of this lesson
   Future<void> _switchLanguage() async {
     if (_siblingLesson == null) return;
     final sibling = _siblingLesson!;
@@ -177,6 +180,19 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   void _copyToClipboard(String text, String label) {
     Clipboard.setData(ClipboardData(text: text));
     _showSnack('$label copied!', AppTheme.primaryBlue);
+  }
+
+  /// Open the Bible passage popup
+  void _openBiblePassage(String passage) {
+    if (passage.trim().isEmpty) return;
+    final user = ref.read(currentUserProvider);
+    final language = user?.preferredLanguage ??
+        (_lesson?['language']?.toString() ?? 'english');
+    BiblePassagePopup.show(
+      context,
+      passageRef: passage,
+      language: language,
+    );
   }
 
   void _showAddNoteDialog() {
@@ -397,7 +413,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     );
   }
 
-  /// Language switch button in app bar
   Widget _buildLanguageSwitchButton() {
     final sibling = _siblingLesson!;
     final siblingLang =
@@ -599,6 +614,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                       height: 1.6)),
             ),
 
+          // ═══════════ BIBLE PASSAGE (TAPPABLE!) ═══════════
           if (biblePassage.isNotEmpty)
             _section(
               icon: Icons.menu_book,
@@ -606,13 +622,51 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
               label: 'BIBLE PASSAGE',
               isDark: isDark,
               trailing: _copyBtn(biblePassage, 'Bible passage', isDark),
-              child: Text(biblePassage,
-                  style: TextStyle(
-                      fontSize: _fontSize,
-                      fontWeight: FontWeight.w600,
-                      color:
-                          isDark ? Colors.white : AppTheme.primaryBlue,
-                      height: 1.5)),
+              child: InkWell(
+                onTap: () => _openBiblePassage(biblePassage),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryBlue.withOpacity(
+                        isDark ? 0.15 : 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                        color:
+                            AppTheme.primaryBlue.withOpacity(0.3),
+                        width: 1),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(biblePassage,
+                            style: TextStyle(
+                                fontSize: _fontSize,
+                                fontWeight: FontWeight.w600,
+                                color: isDark
+                                    ? Colors.white
+                                    : AppTheme.primaryBlue,
+                                height: 1.5)),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryBlue,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Icon(
+                          Icons.open_in_new,
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
 
           if (memoryVerse.isNotEmpty)
@@ -639,11 +693,15 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                     const SizedBox(height: 8),
                     Align(
                       alignment: Alignment.centerRight,
-                      child: Text('- $goldenTextRef',
-                          style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.accentGoldDark)),
+                      child: InkWell(
+                        onTap: () => _openBiblePassage(goldenTextRef),
+                        child: Text('- $goldenTextRef',
+                            style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.accentGoldDark,
+                                decoration: TextDecoration.underline)),
+                      ),
                     ),
                   ],
                 ],
@@ -927,11 +985,15 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
             const SizedBox(height: 10),
             Align(
               alignment: Alignment.centerRight,
-              child: Text('- $ref',
-                  style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.accentGoldDark)),
+              child: InkWell(
+                onTap: () => _openBiblePassage(ref),
+                child: Text('- $ref',
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.accentGoldDark,
+                        decoration: TextDecoration.underline)),
+              ),
             ),
           ],
         ],
