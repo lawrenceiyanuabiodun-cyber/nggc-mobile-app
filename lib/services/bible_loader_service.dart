@@ -5,23 +5,81 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// ─────────────────────────────────────────────────────────
 /// BibleLoaderService
-/// Loads bundled Bible JSON files into Hive on first launch.
-/// After first load, uses Hive for instant offline access.
+/// Loads all Bible translations into Hive on first launch.
+/// Supports: KJV, ASV, BBE, KJVA, Webster, YLT, Yoruba
 /// ─────────────────────────────────────────────────────────
 class BibleLoaderService {
   BibleLoaderService._();
 
   // Hive box names
   static const String _englishBoxName = 'bible_english';
-  static const String _yorubaBoxName = 'bible_yoruba';
+  static const String _yorubaBoxName  = 'bible_yoruba';
+  static const String _asvBoxName     = 'bible_asv';
+  static const String _bbeBoxName     = 'bible_bbe';
+  static const String _kjvaBoxName    = 'bible_kjva';
+  static const String _websterBoxName = 'bible_webster';
+  static const String _yltBoxName     = 'bible_ylt';
 
-  // Bumped to v4 to force reload with correct book order fix
-  static const String _loadedFlag = 'bibles_loaded_v4';
+  // Bump version to force reload when new translations added
+  static const String _loadedFlag = 'bibles_loaded_v6';
 
-  // Special key used to store Yoruba book order inside the Hive box
+  // Special key for Yoruba book order
   static const String _yorubaOrderKey = '__book_order__';
 
-  // Standard 66-book English Bible name map (matches KJV book numbers 1-66)
+  // All supported translations
+  static const List<Map<String, String>> translations = [
+    {
+      'key':      'english',
+      'label':    'KJV',
+      'fullName': 'King James Version',
+      'box':      'bible_english',
+      'year':     '1611',
+    },
+    {
+      'key':      'kjva',
+      'label':    'KJVA',
+      'fullName': 'King James Version with Apocrypha',
+      'box':      'bible_kjva',
+      'year':     '1611',
+    },
+    {
+      'key':      'asv',
+      'label':    'ASV',
+      'fullName': 'American Standard Version',
+      'box':      'bible_asv',
+      'year':     '1901',
+    },
+    {
+      'key':      'bbe',
+      'label':    'BBE',
+      'fullName': 'Bible in Basic English',
+      'box':      'bible_bbe',
+      'year':     '1949',
+    },
+    {
+      'key':      'webster',
+      'label':    'Webster',
+      'fullName': 'Webster Bible',
+      'box':      'bible_webster',
+      'year':     '1833',
+    },
+    {
+      'key':      'ylt',
+      'label':    'YLT',
+      'fullName': "Young's Literal Translation",
+      'box':      'bible_ylt',
+      'year':     '1898',
+    },
+    {
+      'key':      'yoruba',
+      'label':    'Yoruba',
+      'fullName': 'Bibeli Mimo',
+      'box':      'bible_yoruba',
+      'year':     '',
+    },
+  ];
+
+  // Standard 66-book English Bible name map
   static const List<String> _englishBookNames = [
     'Genesis', 'Exodus', 'Leviticus', 'Numbers', 'Deuteronomy',
     'Joshua', 'Judges', 'Ruth', '1 Samuel', '2 Samuel',
@@ -39,52 +97,119 @@ class BibleLoaderService {
     'Jude', 'Revelation',
   ];
 
-  /// Main entry — call this from splash screen
-  /// Returns true if Bibles are ready to use
+  /// Main entry — call from splash screen
   static Future<bool> ensureBiblesLoaded() async {
     final prefs = await SharedPreferences.getInstance();
     final alreadyLoaded = prefs.getBool(_loadedFlag) ?? false;
 
     if (alreadyLoaded) {
-      // Bibles already in Hive — open the boxes and return
       await Hive.openBox(_englishBoxName);
       await Hive.openBox(_yorubaBoxName);
+      await Hive.openBox(_asvBoxName);
+      await Hive.openBox(_bbeBoxName);
+      await Hive.openBox(_kjvaBoxName);
+      await Hive.openBox(_websterBoxName);
+      await Hive.openBox(_yltBoxName);
       return true;
     }
 
-    // First launch or version bump — load from JSON assets into Hive
     try {
       await _loadEnglishBible();
       await _loadYorubaBible();
+      await _loadScrollmapperBible(
+        assetPath: 'assets/bibles/asv_bible.json',
+        boxName: _asvBoxName,
+        label: 'ASV',
+      );
+      await _loadScrollmapperBible(
+        assetPath: 'assets/bibles/bbe_bible.json',
+        boxName: _bbeBoxName,
+        label: 'BBE',
+      );
+      await _loadScrollmapperBible(
+        assetPath: 'assets/bibles/kjva_bible.json',
+        boxName: _kjvaBoxName,
+        label: 'KJVA',
+      );
+      await _loadScrollmapperBible(
+        assetPath: 'assets/bibles/webster_bible.json',
+        boxName: _websterBoxName,
+        label: 'Webster',
+      );
+      await _loadScrollmapperBible(
+        assetPath: 'assets/bibles/ylt_bible.json',
+        boxName: _yltBoxName,
+        label: 'YLT',
+      );
       await prefs.setBool(_loadedFlag, true);
       return true;
     } catch (e) {
-      // ignore: avoid_print
-      print('❌ Bible loading failed: $e');
+      print('Bible loading failed: $e');
       return false;
     }
   }
 
-  /// ─────────────────────────────────────────────────────────
-  /// English Bible loader
-  /// JSON structure:
-  /// {
-  ///   "language": "english",
-  ///   "translation": "KJV",
-  ///   "books": {
-  ///     "1": { "1": { "1": "text" } },
-  ///     "2": { ... }
-  ///   }
-  /// }
-  /// We map book numbers 1..66 → English book names.
-  /// ─────────────────────────────────────────────────────────
+  /// Load Scrollmapper format:
+  /// { "translation": "...", "books": [ { "name": "Genesis",
+  ///   "chapters": [ { "chapter": 1,
+  ///     "verses": [ { "verse": 1, "text": "..." } ] } ] } ] }
+  static Future<void> _loadScrollmapperBible({
+    required String assetPath,
+    required String boxName,
+    required String label,
+  }) async {
+    final jsonString = await rootBundle.loadString(assetPath);
+    final Map<String, dynamic> root = json.decode(jsonString);
+
+    final box = await Hive.openBox(boxName);
+    await box.clear();
+
+    final books = root['books'];
+    if (books is! List) {
+      print('$label: no books array found');
+      return;
+    }
+
+    for (final bookRaw in books) {
+      if (bookRaw is! Map) continue;
+      final bookName = bookRaw['name']?.toString() ?? '';
+      if (bookName.isEmpty) continue;
+
+      final Map<String, Map<String, String>> chaptersMap = {};
+      final chaptersRaw = bookRaw['chapters'];
+      if (chaptersRaw is List) {
+        for (final chapRaw in chaptersRaw) {
+          if (chapRaw is! Map) continue;
+          final chapNum = chapRaw['chapter']?.toString() ?? '';
+          if (chapNum.isEmpty) continue;
+
+          final Map<String, String> versesMap = {};
+          final versesRaw = chapRaw['verses'];
+          if (versesRaw is List) {
+            for (final verseRaw in versesRaw) {
+              if (verseRaw is! Map) continue;
+              final verseNum = verseRaw['verse']?.toString() ?? '';
+              final text    = verseRaw['text']?.toString() ?? '';
+              if (verseNum.isNotEmpty) {
+                versesMap[verseNum] = text;
+              }
+            }
+          }
+          chaptersMap[chapNum] = versesMap;
+        }
+      }
+      await box.put(bookName, chaptersMap);
+    }
+
+    print('$label Bible loaded: ${box.length} books');
+  }
+
+  /// English KJV loader (existing format)
   static Future<void> _loadEnglishBible() async {
     final jsonString = await rootBundle.loadString(
       'assets/bibles/english_bible.json',
     );
     final Map<String, dynamic> root = json.decode(jsonString);
-
-    // Get the "books" object (or fallback to root for legacy format)
     final Map<String, dynamic> booksMap = root['books'] is Map
         ? Map<String, dynamic>.from(root['books'])
         : root;
@@ -92,7 +217,6 @@ class BibleLoaderService {
     final box = await Hive.openBox(_englishBoxName);
     await box.clear();
 
-    // Sort by numeric key to preserve Genesis..Revelation order
     final sortedKeys = booksMap.keys.toList()
       ..sort((a, b) {
         final ai = int.tryParse(a) ?? 999;
@@ -104,20 +228,19 @@ class BibleLoaderService {
       final chaptersRaw = booksMap[key];
       if (chaptersRaw is! Map) continue;
 
-      // Map "1" → "Genesis", "66" → "Revelation"
       final bookNum = int.tryParse(key);
       String bookName;
-      if (bookNum != null && bookNum >= 1 && bookNum <= _englishBookNames.length) {
+      if (bookNum != null &&
+          bookNum >= 1 &&
+          bookNum <= _englishBookNames.length) {
         bookName = _englishBookNames[bookNum - 1];
       } else {
-        // If key is already a name (legacy format), use it
         bookName = key;
       }
 
-      // Normalize chapters → { "1": { "1": "text" } }
       final Map<String, Map<String, String>> normalized = {};
       for (final chapEntry in chaptersRaw.entries) {
-        final chapKey = chapEntry.key.toString();
+        final chapKey  = chapEntry.key.toString();
         final versesRaw = chapEntry.value;
         if (versesRaw is Map) {
           final Map<String, String> verses = {};
@@ -127,89 +250,62 @@ class BibleLoaderService {
           normalized[chapKey] = verses;
         }
       }
-
       await box.put(bookName, normalized);
     }
-
-    // ignore: avoid_print
-    print('✅ English Bible loaded: ${box.length} books');
+    print('KJV Bible loaded: ${box.length} books');
   }
 
-  /// ─────────────────────────────────────────────────────────
-  /// Yoruba Bible loader
-  /// JSON structure (Format A):
-  /// [
-  ///   {
-  ///     "bookName": "Gẹ́nẹ́sísì",
-  ///     "details": [
-  ///       { "bookName": "...", "chapter": 1, "verse": 1, "text": "..." }
-  ///     ]
-  ///   }
-  /// ]
-  /// Saves __book_order__ key so getBooks() returns correct order.
-  /// ─────────────────────────────────────────────────────────
+  /// Yoruba Bible loader (existing format)
   static Future<void> _loadYorubaBible() async {
     final jsonString = await rootBundle.loadString(
       'assets/bibles/yoruba_bible.json',
     );
     final dynamic decoded = json.decode(jsonString);
-
     final box = await Hive.openBox(_yorubaBoxName);
     await box.clear();
 
     if (decoded is List) {
-      // Preserve original book order using a list of book names
       final List<String> bookOrder = [];
       final Map<String, Map<String, Map<String, String>>> grouped = {};
 
       for (final item in decoded) {
         if (item is Map<String, dynamic>) {
-          // Prefer top-level bookName for grouping (Format A)
           final topBookName = item['bookName']?.toString();
-
           if (item.containsKey('details') && item['details'] is List) {
-            final details = item['details'] as List;
-            for (final v in details) {
+            for (final v in item['details'] as List) {
               if (v is Map<String, dynamic>) {
-                _addYorubaVerse(grouped, bookOrder, v, fallbackBookName: topBookName);
+                _addYorubaVerse(grouped, bookOrder, v,
+                    fallbackBookName: topBookName);
               }
             }
           } else {
-            // Format B — item itself is a verse
             _addYorubaVerse(grouped, bookOrder, item);
           }
         }
       }
 
-      // Save in insertion order (matches JSON order)
       for (final book in bookOrder) {
         final data = grouped[book];
-        if (data != null) {
-          await box.put(book, data);
-        }
+        if (data != null) await box.put(book, data);
       }
-
-      // Save the book order list so getBooks() can restore it correctly
       await box.put(_yorubaOrderKey, bookOrder);
     }
-
-    // ignore: avoid_print
-    print('✅ Yoruba Bible loaded: ${box.length - 1} books');
+    print('Yoruba Bible loaded: ${box.length - 1} books');
   }
 
-  /// Helper: Add one Yoruba verse to the grouped structure
   static void _addYorubaVerse(
     Map<String, Map<String, Map<String, String>>> grouped,
     List<String> bookOrder,
     Map<String, dynamic> verseData, {
     String? fallbackBookName,
   }) {
-    final bookName = (verseData['bookName']?.toString().trim().isNotEmpty ?? false)
-        ? verseData['bookName'].toString()
-        : (fallbackBookName ?? 'Unknown');
+    final bookName =
+        (verseData['bookName']?.toString().trim().isNotEmpty ?? false)
+            ? verseData['bookName'].toString()
+            : (fallbackBookName ?? 'Unknown');
     final chapter = verseData['chapter']?.toString() ?? '0';
-    final verse = verseData['verse']?.toString() ?? '0';
-    final text = verseData['text']?.toString() ?? '';
+    final verse   = verseData['verse']?.toString() ?? '0';
+    final text    = verseData['text']?.toString() ?? '';
 
     if (!grouped.containsKey(bookName)) {
       grouped[bookName] = {};
@@ -219,46 +315,50 @@ class BibleLoaderService {
     grouped[bookName]![chapter]![verse] = text;
   }
 
-  /// ─────────────────────────────────────────────────────────
-  /// Public Read API
-  /// ─────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
+  // Public Read API
+  // ─────────────────────────────────────────────────────────
 
-  /// Get all books for a language in correct Biblical order
-  static List<String> getBooks(String language) {
-    if (language == 'yoruba') {
-      // Yoruba: read the saved order list from Hive
+  static String _boxForTranslation(String translation) {
+    switch (translation) {
+      case 'asv':     return _asvBoxName;
+      case 'bbe':     return _bbeBoxName;
+      case 'kjva':    return _kjvaBoxName;
+      case 'webster': return _websterBoxName;
+      case 'ylt':     return _yltBoxName;
+      case 'yoruba':  return _yorubaBoxName;
+      default:        return _englishBoxName; // KJV
+    }
+  }
+
+  /// Get all books for a translation in correct Biblical order
+  static List<String> getBooks(String translation) {
+    if (translation == 'yoruba') {
       if (!Hive.isBoxOpen(_yorubaBoxName)) return [];
       final box = Hive.box(_yorubaBoxName);
       final orderRaw = box.get(_yorubaOrderKey);
-      if (orderRaw is List) {
-        return orderRaw.cast<String>().toList();
-      }
-      // Fallback: return all keys except the order key
+      if (orderRaw is List) return orderRaw.cast<String>().toList();
       return box.keys
           .cast<String>()
           .where((k) => k != _yorubaOrderKey)
           .toList();
-    } else {
-      // English: always return in _englishBookNames order
-      // Only include books that are actually stored in Hive
-      if (!Hive.isBoxOpen(_englishBoxName)) return [];
-      final box = Hive.box(_englishBoxName);
-      final storedKeys = box.keys.cast<String>().toSet();
-      return _englishBookNames
-          .where((name) => storedKeys.contains(name))
-          .toList();
     }
+
+    final boxName = _boxForTranslation(translation);
+    if (!Hive.isBoxOpen(boxName)) return [];
+    final box = Hive.box(boxName);
+    final storedKeys = box.keys.cast<String>().toSet();
+    return _englishBookNames.where((n) => storedKeys.contains(n)).toList();
   }
 
   /// Get all chapters for a book
-  static List<String> getChapters(String language, String book) {
-    final boxName = language == 'yoruba' ? _yorubaBoxName : _englishBoxName;
+  static List<String> getChapters(String translation, String book) {
+    final boxName = _boxForTranslation(translation);
     if (!Hive.isBoxOpen(boxName)) return [];
-    final box = Hive.box(boxName);
+    final box     = Hive.box(boxName);
     final bookData = box.get(book);
     if (bookData is Map) {
       final keys = bookData.keys.map((e) => e.toString()).toList();
-      // Sort numerically so 1, 2, 3, ... 10, 11 (not 1, 10, 11, 2)
       keys.sort((a, b) {
         final ai = int.tryParse(a) ?? 999;
         final bi = int.tryParse(b) ?? 999;
@@ -271,20 +371,18 @@ class BibleLoaderService {
 
   /// Get all verses for a chapter
   static Map<String, String> getVerses(
-    String language,
+    String translation,
     String book,
     String chapter,
   ) {
-    final boxName = language == 'yoruba' ? _yorubaBoxName : _englishBoxName;
+    final boxName  = _boxForTranslation(translation);
     if (!Hive.isBoxOpen(boxName)) return {};
-    final box = Hive.box(boxName);
+    final box      = Hive.box(boxName);
     final bookData = box.get(book);
     if (bookData is Map) {
       final chapterData = bookData[chapter];
       if (chapterData is Map) {
-        return chapterData.map(
-          (k, v) => MapEntry(k.toString(), v.toString()),
-        );
+        return chapterData.map((k, v) => MapEntry(k.toString(), v.toString()));
       }
     }
     return {};
@@ -292,12 +390,20 @@ class BibleLoaderService {
 
   /// Get a single verse
   static String? getVerse(
-    String language,
+    String translation,
     String book,
     String chapter,
     String verse,
   ) {
-    final verses = getVerses(language, book, chapter);
-    return verses[verse];
+    return getVerses(translation, book, chapter)[verse];
   }
+
+  /// Backward compat — old code passes 'english' or 'yoruba'
+  /// New code passes 'asv', 'bbe', etc.
+  static List<String> getBooksLegacy(String language) => getBooks(language);
+  static List<String> getChaptersLegacy(String language, String book) =>
+      getChapters(language, book);
+  static Map<String, String> getVersesLegacy(
+          String language, String book, String chapter) =>
+      getVerses(language, book, chapter);
 }

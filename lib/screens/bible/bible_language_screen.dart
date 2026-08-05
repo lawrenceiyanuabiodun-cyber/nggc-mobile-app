@@ -1,14 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
+import '../../services/bible_loader_service.dart';
 import '../../services/preferences_service.dart';
 import '../../theme/app_theme.dart';
 import 'bible_books_screen.dart';
 
-// ─────────────────────────────────────────────────────────
-// BibleLanguageScreen
-// Entry point to Bible — user picks English or Yoruba
-// Remembers last used language via PreferencesService
-// ─────────────────────────────────────────────────────────
 class BibleLanguageScreen extends StatefulWidget {
   const BibleLanguageScreen({super.key});
 
@@ -17,7 +13,7 @@ class BibleLanguageScreen extends StatefulWidget {
 }
 
 class _BibleLanguageScreenState extends State<BibleLanguageScreen> {
-  String _lastUsedLanguage = 'english';
+  String _lastUsed = 'english';
   bool _loading = true;
 
   @override
@@ -30,27 +26,30 @@ class _BibleLanguageScreenState extends State<BibleLanguageScreen> {
     final lang = await PreferencesService.getBibleLanguage();
     if (mounted) {
       setState(() {
-        _lastUsedLanguage = lang;
-        _loading = false;
+        _lastUsed = lang;
+        _loading  = false;
       });
     }
   }
 
-  Future<void> _selectLanguage(String language) async {
-    await PreferencesService.setBibleLanguage(language);
+  Future<void> _selectTranslation(String translationKey) async {
+    await PreferencesService.setBibleLanguage(translationKey);
     if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => BibleBooksScreen(language: language),
+        builder: (_) => BibleBooksScreen(language: translationKey),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg     = isDark ? const Color(0xFF0F0F1E) : AppTheme.surfaceLight;
+
     return Scaffold(
-      backgroundColor: AppTheme.surfaceLight,
+      backgroundColor: bg,
       appBar: AppBar(
         title: const Text('Bible'),
         backgroundColor: AppTheme.primaryBlue,
@@ -64,17 +63,14 @@ class _BibleLanguageScreenState extends State<BibleLanguageScreen> {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // ── Header ──────────────────────────────
+                // Header
                 Container(
                   color: AppTheme.primaryBlue,
                   padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
                   child: const Column(
                     children: [
-                      Icon(
-                        Icons.menu_book,
-                        color: AppTheme.accentGold,
-                        size: 48,
-                      ),
+                      Icon(Icons.menu_book,
+                          color: AppTheme.accentGold, size: 48),
                       SizedBox(height: 12),
                       Text(
                         'Holy Bible',
@@ -87,87 +83,59 @@ class _BibleLanguageScreenState extends State<BibleLanguageScreen> {
                       ),
                       SizedBox(height: 6),
                       Text(
-                        'Select your preferred language',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.white70,
-                        ),
+                        'Select a translation',
+                        style: TextStyle(fontSize: 13, color: Colors.white70),
                       ),
                     ],
                   ),
                 ),
 
-                const SizedBox(height: 32),
-
-                // ── Language Cards ───────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.all(20),
                     children: [
-                      _buildLanguageCard(
-                        language: 'english',
-                        title: 'English',
-                        subtitle: 'King James Version (KJV)',
-                        flag: '🇬🇧',
-                        color: const Color(0xFF1565C0),
-                        isLastUsed: _lastUsedLanguage == 'english',
-                      ),
-                      const SizedBox(height: 16),
-                      _buildLanguageCard(
-                        language: 'yoruba',
-                        title: 'Yoruba',
-                        subtitle: 'Bibeli Mimo (Yoruba Translation)',
-                        flag: '🇳🇬',
-                        color: const Color(0xFF2E7D32),
-                        isLastUsed: _lastUsedLanguage == 'yoruba',
-                      ),
-                    ],
-                  ),
-                ),
+                      // English translations section
+                      _sectionLabel('English Translations', isDark),
+                      const SizedBox(height: 10),
+                      ...BibleLoaderService.translations
+                          .where((t) => t['key'] != 'yoruba')
+                          .map((t) => _buildCard(t, isDark))
+                          .toList(),
 
-                const Spacer(),
+                      const SizedBox(height: 20),
 
-                // ── Last used hint ────────────────────────
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.history,
-                        size: 13,
-                        color: AppTheme.textHint,
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        'Last used: ${_lastUsedLanguage == 'yoruba' ? 'Yoruba' : 'English'}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textHint,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                      // Yoruba section
+                      _sectionLabel('Yoruba', isDark),
+                      const SizedBox(height: 10),
+                      ...BibleLoaderService.translations
+                          .where((t) => t['key'] == 'yoruba')
+                          .map((t) => _buildCard(t, isDark))
+                          .toList(),
 
-                // ── Offline note ─────────────────────────
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(
-                        Icons.offline_bolt_outlined,
-                        size: 14,
-                        color: AppTheme.textHint,
+                      const SizedBox(height: 20),
+
+                      // Offline note
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(Icons.offline_bolt_outlined,
+                              size: 14, color: AppTheme.textHint),
+                          SizedBox(width: 6),
+                          Text(
+                            'All translations available offline',
+                            style: TextStyle(
+                                fontSize: 12, color: AppTheme.textHint),
+                          ),
+                        ],
                       ),
-                      SizedBox(width: 6),
-                      Text(
-                        'Full Bible available offline',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textHint,
-                        ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(Icons.history,
+                              size: 13, color: AppTheme.textHint),
+                          SizedBox(width: 5),
+                        ],
                       ),
                     ],
                   ),
@@ -177,50 +145,74 @@ class _BibleLanguageScreenState extends State<BibleLanguageScreen> {
     );
   }
 
-  Widget _buildLanguageCard({
-    required String language,
-    required String title,
-    required String subtitle,
-    required String flag,
-    required Color color,
-    required bool isLastUsed,
-  }) {
+  Widget _sectionLabel(String label, bool isDark) {
+    return Text(
+      label.toUpperCase(),
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 1.5,
+        color: isDark ? Colors.white38 : AppTheme.textHint,
+      ),
+    );
+  }
+
+  Widget _buildCard(Map<String, String> t, bool isDark) {
+    final key       = t['key']!;
+    final label     = t['label']!;
+    final fullName  = t['fullName']!;
+    final year      = t['year']!;
+    final isLastUsed = _lastUsed == key;
+    final isYoruba  = key == 'yoruba';
+
+    final color = isYoruba
+        ? const Color(0xFF2E7D32)
+        : AppTheme.primaryBlue;
+
+    final cardBg = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+
     return GestureDetector(
-      onTap: () => _selectLanguage(language),
+      onTap: () => _selectTranslation(key),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.12),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          color: cardBg,
+          borderRadius: BorderRadius.circular(14),
           border: isLastUsed
               ? Border.all(color: color, width: 2)
-              : Border.all(color: color.withOpacity(0.15)),
+              : Border.all(
+                  color: color.withOpacity(isDark ? 0.15 : 0.12)),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(isDark ? 0.15 : 0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
         child: Row(
           children: [
-            // Flag
+            // Badge
             Container(
-              width: 56,
-              height: 56,
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(14),
+                color: color.withOpacity(isDark ? 0.2 : 0.1),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Center(
                 child: Text(
-                  flag,
-                  style: const TextStyle(fontSize: 28),
+                  isYoruba ? '🇳🇬' : label,
+                  style: TextStyle(
+                    fontSize: isYoruba ? 26 : 13,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
             // Text
             Expanded(
               child: Column(
@@ -229,22 +221,20 @@ class _BibleLanguageScreenState extends State<BibleLanguageScreen> {
                   Row(
                     children: [
                       Text(
-                        title,
+                        fullName,
                         style: TextStyle(
-                          fontSize: 17,
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: color,
+                          color: isDark ? Colors.white : color,
                         ),
                       ),
                       if (isLastUsed) ...[
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
+                              horizontal: 7, vertical: 2),
                           decoration: BoxDecoration(
-                            color: color.withOpacity(0.1),
+                            color: color.withOpacity(0.12),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -259,12 +249,14 @@ class _BibleLanguageScreenState extends State<BibleLanguageScreen> {
                       ],
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
+                    year.isNotEmpty ? '$label · $year' : label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark
+                          ? Colors.white38
+                          : AppTheme.textSecondary,
                     ),
                   ),
                 ],
@@ -272,7 +264,7 @@ class _BibleLanguageScreenState extends State<BibleLanguageScreen> {
             ),
             Icon(
               Icons.chevron_right,
-              color: color.withOpacity(0.5),
+              color: isDark ? Colors.white24 : color.withOpacity(0.4),
             ),
           ],
         ),
