@@ -5,11 +5,6 @@ import '../../services/manuals_loader_service.dart';
 import '../../theme/app_theme.dart';
 import 'manual_detail_screen.dart';
 
-// ─────────────────────────────────────────────────────────
-// ManualsScreen
-// Offline-first grid of all Sunday School manuals
-// Bundled 8 manuals load instantly; refreshes from API if online
-// ─────────────────────────────────────────────────────────
 class ManualsScreen extends StatefulWidget {
   const ManualsScreen({super.key});
 
@@ -30,7 +25,6 @@ class _ManualsScreenState extends State<ManualsScreen> {
   Future<void> _loadManuals() async {
     setState(() => _isLoading = true);
 
-    // STEP 1: Load bundled/cached manuals INSTANTLY
     final cached = ManualsLoaderService.getAllManuals();
     if (cached.isNotEmpty) {
       setState(() {
@@ -39,7 +33,6 @@ class _ManualsScreenState extends State<ManualsScreen> {
       });
     }
 
-    // STEP 2: Refresh from API in background
     try {
       final response = await ApiService.get('/manuals/');
       if (!mounted) return;
@@ -57,12 +50,32 @@ class _ManualsScreenState extends State<ManualsScreen> {
         }
       }
     } catch (_) {
-      // Silent — cached data is still shown
+      // Silent - cached data is still shown
     }
 
     if (mounted && _isLoading) {
       setState(() => _isLoading = false);
     }
+  }
+
+  String _formatPeriod(String period) {
+    final value = period.trim();
+    final upper = value.toUpperCase();
+
+    if (upper.startsWith('Q1')) {
+      return value.replaceFirst(RegExp(r'^Q1', caseSensitive: false), 'H1');
+    }
+    if (upper.startsWith('Q2')) {
+      return value.replaceFirst(RegExp(r'^Q2', caseSensitive: false), 'H1');
+    }
+    if (upper.startsWith('Q3')) {
+      return value.replaceFirst(RegExp(r'^Q3', caseSensitive: false), 'H2');
+    }
+    if (upper.startsWith('Q4')) {
+      return value.replaceFirst(RegExp(r'^Q4', caseSensitive: false), 'H2');
+    }
+
+    return value;
   }
 
   @override
@@ -115,14 +128,17 @@ class _ManualsScreenState extends State<ManualsScreen> {
   }
 
   Widget _buildManualCard(
-      Map<String, dynamic> manual, bool isDark, int index) {
+    Map<String, dynamic> manual,
+    bool isDark,
+    int index,
+  ) {
     final title = manual['title']?.toString() ?? 'Untitled Manual';
     final year = manual['year']?.toString() ?? '';
-    final period = manual['period']?.toString() ?? '';
+    final rawPeriod = manual['period']?.toString() ?? '';
+    final period = _formatPeriod(rawPeriod);
     final language = manual['language']?.toString() ?? 'english';
     final isEnglish = language.toLowerCase() == 'english';
 
-    // Alternate cover colors for visual variety
     final colors = [
       [const Color(0xFF1565C0), const Color(0xFF0D47A1)],
       [const Color(0xFF6A1B9A), const Color(0xFF4A148C)],
@@ -158,7 +174,6 @@ class _ManualsScreenState extends State<ManualsScreen> {
           borderRadius: BorderRadius.circular(14),
           child: Stack(
             children: [
-              // Book cover gradient
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -168,7 +183,6 @@ class _ManualsScreenState extends State<ManualsScreen> {
                   ),
                 ),
               ),
-              // Decorative church icon at top
               Positioned(
                 top: 12,
                 right: 10,
@@ -178,7 +192,6 @@ class _ManualsScreenState extends State<ManualsScreen> {
                   size: 60,
                 ),
               ),
-              // Title + info
               Padding(
                 padding: const EdgeInsets.all(14),
                 child: Column(
@@ -190,7 +203,9 @@ class _ManualsScreenState extends State<ManualsScreen> {
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: AppTheme.accentGold,
                             borderRadius: BorderRadius.circular(6),
@@ -250,7 +265,9 @@ class _ManualsScreenState extends State<ManualsScreen> {
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.white24,
                                 borderRadius: BorderRadius.circular(4),
