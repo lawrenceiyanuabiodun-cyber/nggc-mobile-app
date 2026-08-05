@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/auth_provider.dart';
@@ -56,6 +56,20 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     }
   }
 
+  // Safe nested getter: _get(['users','total_users'])
+  String _get(List<String> path, {String fallback = '0'}) {
+    dynamic node = _stats;
+    for (final key in path) {
+      if (node is Map && node.containsKey(key)) {
+        node = node[key];
+      } else {
+        return fallback;
+      }
+    }
+    if (node == null) return fallback;
+    return node.toString();
+  }
+
   void _navigateTo(Widget screen) {
     Navigator.push(
       context,
@@ -96,8 +110,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
               const SizedBox(height: 20),
 
-              // ── Stats Cards ──────────────────────────
-              _buildSectionTitle('Overview'),
+              // ── Stats ────────────────────────────────
               _isLoading
                   ? const Padding(
                       padding: EdgeInsets.all(32),
@@ -109,9 +122,21 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                     )
                   : _error != null
                       ? _buildStatsError()
-                      : _buildStatsGrid(),
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildSectionTitle('People'),
+                            _buildUsersGrid(),
+                            const SizedBox(height: 20),
+                            _buildSectionTitle('Content'),
+                            _buildContentGrid(),
+                            const SizedBox(height: 20),
+                            _buildSectionTitle('Engagement'),
+                            _buildEngagementGrid(),
+                          ],
+                        ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
               // ── Quick Actions ────────────────────────
               _buildSectionTitle('Manage'),
@@ -198,15 +223,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     );
   }
 
-  // ── Stats Grid ─────────────────────────────────────────
-  Widget _buildStatsGrid() {
-    final totalUsers = _stats?['total_users']?.toString() ?? '0';
-    final totalLessons = _stats?['total_lessons']?.toString() ?? '0';
-    final totalAnnouncements =
-        _stats?['total_announcements']?.toString() ?? '0';
-    final totalEvents = _stats?['total_events']?.toString() ?? '0';
-    final activeUsers = _stats?['active_users']?.toString() ?? '0';
-    final totalManuals = _stats?['total_manuals']?.toString() ?? '0';
+  // ── People / Users Grid ────────────────────────────────
+  Widget _buildUsersGrid() {
+    final totalUsers = _get(['users', 'total_users']);
+    final activeUsers = _get(['users', 'active_users']);
+    final admins = _get(['users', 'roles', 'admins']);
+    final members = _get(['users', 'roles', 'members']);
+    final new7d = _get(['users', 'new_users_7d']);
+    final loggedIn7d = _get(['users', 'logged_in_7d']);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -221,15 +245,81 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           _buildStatCard('Total Users', totalUsers,
               Icons.people_outline, const Color(0xFF1565C0)),
           _buildStatCard('Active Users', activeUsers,
-              Icons.person_pin_outlined, const Color(0xFF2E7D32)),
-          _buildStatCard('Lessons', totalLessons,
-              Icons.school_outlined, const Color(0xFF6A1B9A)),
-          _buildStatCard('Announcements', totalAnnouncements,
-              Icons.campaign_outlined, const Color(0xFFE65100)),
-          _buildStatCard('Events', totalEvents,
-              Icons.event_outlined, const Color(0xFF00838F)),
+              Icons.verified_user_outlined, const Color(0xFF2E7D32)),
+          _buildStatCard('Admins', admins,
+              Icons.shield_outlined, const Color(0xFFC62828)),
+          _buildStatCard('Members', members,
+              Icons.groups_outlined, const Color(0xFF6A1B9A)),
+          _buildStatCard('New (7d)', new7d,
+              Icons.person_add_alt_outlined, const Color(0xFF00838F)),
+          _buildStatCard('Logged in (7d)', loggedIn7d,
+              Icons.login_outlined, const Color(0xFFE65100)),
+        ],
+      ),
+    );
+  }
+
+  // ── Content Grid ───────────────────────────────────────
+  Widget _buildContentGrid() {
+    final totalManuals = _get(['content', 'manuals', 'total']);
+    final totalLessons = _get(['content', 'lessons', 'total']);
+    final manualsEn = _get(['content', 'manuals', 'by_language', 'english']);
+    final manualsYo = _get(['content', 'manuals', 'by_language', 'yoruba']);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: GridView.count(
+        crossAxisCount: 2,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.4,
+        children: [
           _buildStatCard('Manuals', totalManuals,
               Icons.book_outlined, const Color(0xFF4E342E)),
+          _buildStatCard('Lessons', totalLessons,
+              Icons.school_outlined, const Color(0xFF6A1B9A)),
+          _buildStatCard('English Manuals', manualsEn,
+              Icons.language_outlined, const Color(0xFF1565C0)),
+          _buildStatCard('Yoruba Manuals', manualsYo,
+              Icons.translate_outlined, const Color(0xFF2E7D32)),
+        ],
+      ),
+    );
+  }
+
+  // ── Engagement Grid ────────────────────────────────────
+  Widget _buildEngagementGrid() {
+    final announcements = _get(['announcements', 'total']);
+    final events = _get(['events', 'events', 'total']);
+    final upcomingEvents = _get(['events', 'events', 'upcoming']);
+    final verseFavs = _get(['engagement', 'favorites', 'total_verse_favorites']);
+    final lessonFavs = _get(['engagement', 'favorites', 'total_lesson_favorites']);
+    final notes = _get(['engagement', 'notes', 'total']);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: GridView.count(
+        crossAxisCount: 2,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.4,
+        children: [
+          _buildStatCard('Announcements', announcements,
+              Icons.campaign_outlined, const Color(0xFFE65100)),
+          _buildStatCard('Events', events,
+              Icons.event_outlined, const Color(0xFF00838F)),
+          _buildStatCard('Upcoming Events', upcomingEvents,
+              Icons.event_available_outlined, const Color(0xFF2E7D32)),
+          _buildStatCard('Verse Favorites', verseFavs,
+              Icons.favorite_border, const Color(0xFFC62828)),
+          _buildStatCard('Lesson Favorites', lessonFavs,
+              Icons.bookmark_border, const Color(0xFF6A1B9A)),
+          _buildStatCard('Notes', notes,
+              Icons.note_outlined, const Color(0xFF1565C0)),
         ],
       ),
     );
