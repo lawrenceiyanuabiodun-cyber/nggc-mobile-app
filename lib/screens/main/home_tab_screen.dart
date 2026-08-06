@@ -220,7 +220,6 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     ];
     final dateLabel = '${now.day} ${months[now.month - 1]} ${now.year}';
 
-    // Same background for all users each day (based on day_of_year)
     final backgrounds = [
       'assets/images/bible_bg/bible_bg1.jpg',
       'assets/images/bible_bg/bible_bg3.jpg',
@@ -235,218 +234,219 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     final dayOfYear = now.difference(startOfYear).inDays + 1;
     final bgImage = backgrounds[dayOfYear % backgrounds.length];
 
-    // Universal square size: 1080 x 1080 (works on all social media)
-    return Container(
+    return SizedBox(
       width: 1080,
       height: 1080,
-      decoration: BoxDecoration(
-        image: DecorationImage(
-          image: AssetImage(bgImage),
-          fit: BoxFit.cover,
-        ),
-      ),
-      child: Container(
-        // Lighter overlay so Bible image shows through
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black.withOpacity(0.25),
-              Colors.black.withOpacity(0.55),
-              Colors.black.withOpacity(0.80),
-            ],
-            stops: const [0.0, 0.5, 1.0],
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Bible image background
+          Image.asset(
+            bgImage,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(
+              color: const Color(0xFF0D1B5E),
+            ),
           ),
-        ),
-        padding: const EdgeInsets.fromLTRB(60, 55, 60, 55),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Top: date
-            Text(
-              dateLabel,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 26,
-                letterSpacing: 2,
-                fontWeight: FontWeight.w500,
-                shadows: [
-                  Shadow(
-                    color: Colors.black,
-                    blurRadius: 10,
-                    offset: Offset(0, 2),
-                  ),
+          // Dark gradient overlay for readability
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withOpacity(0.35),
+                  Colors.black.withOpacity(0.55),
+                  Colors.black.withOpacity(0.75),
                 ],
+                stops: const [0.0, 0.5, 1.0],
               ),
             ),
-            const SizedBox(height: 24),
-            Container(
-              width: 130,
-              height: 5,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFD700),
-                borderRadius: BorderRadius.circular(6),
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'VERSE OF THE DAY',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Color(0xFFFFD700),
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 6,
-                shadows: [
-                  Shadow(
-                    color: Colors.black,
-                    blurRadius: 10,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-            ),
-            // Middle: verse text (centered)
-            Expanded(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        verse,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 32,
-                          fontWeight: FontWeight.w900,
-                          height: 1.35,
-                          letterSpacing: 0.5,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black,
-                              blurRadius: 15,
-                              offset: Offset(0, 4),
-                            ),
-                            Shadow(
-                              color: Colors.black87,
-                              blurRadius: 25,
-                              offset: Offset(0, 0),
-                            ),
-                          ],
-                        ),
+          ),
+          // Content
+          Padding(
+            padding: const EdgeInsets.fromLTRB(60, 50, 60, 50),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // TOP - date + label
+                Column(
+                  children: [
+                    Text(
+                      dateLabel,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 1.5,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black,
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
                       ),
-                      if (ref.isNotEmpty) ...[
-                        const SizedBox(height: 30),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 50,
-                            vertical: 20,
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      width: 100,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFD700),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'VERSE OF THE DAY',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xFFFFD700),
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 5,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black,
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
                           ),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(60),
-                            border: Border.all(
-                              color: const Color(0xFFFFD700),
-                              width: 3,
-                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                // MIDDLE - verse + reference
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      verse,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 44,
+                        fontWeight: FontWeight.w900,
+                        height: 1.35,
+                        letterSpacing: 0.5,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black,
+                            blurRadius: 12,
+                            offset: Offset(0, 3),
                           ),
-                          child: Text(
-                            ref,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Color(0xFFFFD700),
-                              fontSize: 44,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1,
-                            ),
+                          Shadow(
+                            color: Colors.black87,
+                            blurRadius: 20,
+                            offset: Offset(0, 0),
                           ),
+                        ],
+                      ),
+                    ),
+                    if (ref.isNotEmpty) ...[
+                      const SizedBox(height: 32),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 40,
+                          vertical: 14,
                         ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // Bottom: logo and church name
-            Container(
-              padding: const EdgeInsets.only(top: 40),
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(
-                    color: Colors.white.withOpacity(0.4),
-                    width: 1,
-                  ),
-                ),
-              ),
-              child: Column(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: Image.asset(
-                      'assets/images/nggc-logo.png',
-                      width: 90,
-                      height: 90,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        width: 90,
-                        height: 90,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFFD700),
-                          borderRadius: BorderRadius.circular(24),
+                          color: Colors.black.withOpacity(0.55),
+                          borderRadius: BorderRadius.circular(50),
+                          border: Border.all(
+                            color: const Color(0xFFFFD700),
+                            width: 2.5,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.church,
-                          color: Color(0xFF0D1B5E),
-                          size: 66,
+                        child: Text(
+                          ref,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFFFFD700),
+                            fontSize: 32,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                // BOTTOM - logo + church name
+                Column(
+                  children: [
+                    Container(
+                      width: 200,
+                      height: 1,
+                      color: Colors.white.withOpacity(0.4),
+                    ),
+                    const SizedBox(height: 20),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(18),
+                      child: Image.asset(
+                        'assets/images/nggc-logo.png',
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFD700),
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: const Icon(
+                            Icons.church,
+                            color: Color(0xFF0D1B5E),
+                            size: 40,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'NEW GENERATION\nGOSPEL CHURCH',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFFFFD700),
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 3,
-                      height: 1.3,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black,
-                          blurRadius: 10,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
+                    const SizedBox(height: 12),
+                    const Text(
+                      'NEW GENERATION GOSPEL CHURCH',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xFFFFD700),
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black,
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'nggcwebsite.netlify.app',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      letterSpacing: 1,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black,
-                          blurRadius: 8,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
+                    const SizedBox(height: 6),
+                    const Text(
+                      'nggcwebsite.netlify.app',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        letterSpacing: 0.5,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black,
+                            blurRadius: 6,
+                            offset: Offset(0, 1),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
