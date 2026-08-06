@@ -209,38 +209,60 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     }
   }
 
+  String _flyerFullDate(DateTime d) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return '${d.day} ${months[d.month - 1]} ${d.year}';
+  }
+
   Widget _buildFlyerWidget() {
     final verse = _dailyVerse?.trim() ?? '';
     final ref = _dailyVerseRef?.trim() ?? '';
     final now = DateTime.now();
 
-    const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-    final dateLabel = '${now.day} ${months[now.month - 1]} ${now.year}';
-
+    // Same background for all users on same day
     final backgrounds = [
       'assets/images/bible_bg/bible_bg1.jpg',
+      'assets/images/bible_bg/bible_bg2.jpg',
       'assets/images/bible_bg/bible_bg3.jpg',
+      'assets/images/bible_bg/bible_bg4.jpg',
       'assets/images/bible_bg/bible_bg5.jpg',
+      'assets/images/bible_bg/bible_bg6.jpg',
       'assets/images/bible_bg/bible_bg7.jpg',
+      'assets/images/bible_bg/bible_bg8.jpg',
       'assets/images/bible_bg/bible_bg9.jpg',
       'assets/images/bible_bg/bible_bg10.jpg',
-      'assets/images/bible_bg/bible_bg12.jpg',
-      'assets/images/bible_bg/bible_bg14.jpg',
+      'assets/images/bible_bg/bible_bg11.jpg',
     ];
     final startOfYear = DateTime(now.year, 1, 1);
     final dayOfYear = now.difference(startOfYear).inDays + 1;
     final bgImage = backgrounds[dayOfYear % backgrounds.length];
 
+    // Auto-scale verse font based on length
+    final verseLength = verse.length;
+    double verseFontSize;
+    if (verseLength < 80) {
+      verseFontSize = 52;
+    } else if (verseLength < 140) {
+      verseFontSize = 44;
+    } else if (verseLength < 200) {
+      verseFontSize = 38;
+    } else if (verseLength < 280) {
+      verseFontSize = 32;
+    } else {
+      verseFontSize = 28;
+    }
+
+    // Flyer dimensions: 1200x800 (3:2 to match Bible photos)
     return SizedBox(
-      width: 1080,
-      height: 1080,
+      width: 1200,
+      height: 800,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Bible image background
+          // Layer 1: Bible background image
           Image.asset(
             bgImage,
             fit: BoxFit.cover,
@@ -248,155 +270,151 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
               color: const Color(0xFF0D1B5E),
             ),
           ),
-          // Dark gradient overlay for readability
+
+          // Layer 2: Subtle overlay for text readability
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withOpacity(0.35),
-                  Colors.black.withOpacity(0.55),
-                  Colors.black.withOpacity(0.75),
+                  Colors.black.withOpacity(0.30),
+                  Colors.black.withOpacity(0.45),
+                  Colors.black.withOpacity(0.85),
                 ],
-                stops: const [0.0, 0.5, 1.0],
+                stops: const [0.0, 0.55, 1.0],
               ),
             ),
           ),
-          // Content
-          Padding(
-            padding: const EdgeInsets.fromLTRB(60, 50, 60, 50),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // TOP - date + label
-                Column(
-                  children: [
-                    Text(
-                      dateLabel,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 1.5,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black,
-                            blurRadius: 8,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
+
+          // Layer 3: Main content
+          Column(
+            children: [
+              // TOP: Date pill
+              Padding(
+                padding: const EdgeInsets.only(top: 40),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 28,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.55),
+                    borderRadius: BorderRadius.circular(40),
+                    border: Border.all(
+                      color: const Color(0xFFFFD700),
+                      width: 2,
                     ),
-                    const SizedBox(height: 16),
-                    Container(
-                      width: 100,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFD700),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
+                  ),
+                  child: Text(
+                    _flyerFullDate(now),
+                    style: const TextStyle(
+                      color: Color(0xFFFFD700),
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.5,
                     ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'VERSE OF THE DAY',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Color(0xFFFFD700),
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 5,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black,
-                            blurRadius: 8,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-                // MIDDLE - verse + reference
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      verse,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 44,
-                        fontWeight: FontWeight.w900,
-                        height: 1.35,
-                        letterSpacing: 0.5,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black,
-                            blurRadius: 12,
-                            offset: Offset(0, 3),
-                          ),
-                          Shadow(
-                            color: Colors.black87,
-                            blurRadius: 20,
-                            offset: Offset(0, 0),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (ref.isNotEmpty) ...[
-                      const SizedBox(height: 32),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 40,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.55),
-                          borderRadius: BorderRadius.circular(50),
-                          border: Border.all(
-                            color: const Color(0xFFFFD700),
-                            width: 2.5,
-                          ),
-                        ),
+              ),
+              // MIDDLE: verse + reference
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(80, 30, 80, 20),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Flexible(
                         child: Text(
-                          ref,
+                          verse,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Color(0xFFFFD700),
-                            fontSize: 32,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: verseFontSize,
                             fontWeight: FontWeight.w900,
-                            letterSpacing: 1,
+                            height: 1.4,
+                            letterSpacing: 0.4,
+                            shadows: const [
+                              Shadow(
+                                color: Colors.black,
+                                blurRadius: 14,
+                                offset: Offset(0, 3),
+                              ),
+                              Shadow(
+                                color: Colors.black87,
+                                blurRadius: 22,
+                                offset: Offset(0, 0),
+                              ),
+                            ],
                           ),
                         ),
                       ),
+                      if (ref.isNotEmpty) ...[
+                        const SizedBox(height: 28),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 32,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.55),
+                            borderRadius: BorderRadius.circular(50),
+                            border: Border.all(
+                              color: const Color(0xFFFFD700),
+                              width: 2.5,
+                            ),
+                          ),
+                          child: Text(
+                            ref,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Color(0xFFFFD700),
+                              fontSize: 26,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-                // BOTTOM - logo + church name
-                Column(
-                  children: [
-                    Container(
-                      width: 200,
-                      height: 1,
-                      color: Colors.white.withOpacity(0.4),
+              ),
+
+              // Lower Third strip
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 40,
+                  vertical: 22,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.85),
+                  border: const Border(
+                    top: BorderSide(
+                      color: Color(0xFFFFD700),
+                      width: 3,
                     ),
-                    const SizedBox(height: 20),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Logo
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(14),
                       child: Image.asset(
                         'assets/images/nggc-logo.png',
-                        width: 80,
-                        height: 80,
+                        width: 76,
+                        height: 76,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Container(
-                          width: 80,
-                          height: 80,
+                          width: 76,
+                          height: 76,
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFD700),
-                            borderRadius: BorderRadius.circular(18),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                           child: const Icon(
                             Icons.church,
@@ -406,45 +424,38 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'NEW GENERATION GOSPEL CHURCH',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Color(0xFFFFD700),
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 2,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black,
-                            blurRadius: 8,
-                            offset: Offset(0, 2),
+                    const SizedBox(width: 20),
+                    // Church name + website
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'NEW GENERATION GOSPEL CHURCH',
+                            style: TextStyle(
+                              color: Color(0xFFFFD700),
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.5,
+                            ),
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'nggcwebsite.netlify.app',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        letterSpacing: 0.5,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black,
-                            blurRadius: 6,
-                            offset: Offset(0, 1),
+                          SizedBox(height: 4),
+                          Text(
+                            'nggcwebsite.netlify.app',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              letterSpacing: 0.5,
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
