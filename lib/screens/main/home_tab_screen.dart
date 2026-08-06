@@ -153,8 +153,11 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       },
     ];
 
-    final day = DateTime.now().day;
-    final v = fallbackVerses[day % fallbackVerses.length];
+    // Use day_of_year so all users see same verse each day (offline fallback)
+    final now = DateTime.now();
+    final startOfYear = DateTime(now.year, 1, 1);
+    final dayOfYear = now.difference(startOfYear).inDays + 1;
+    final v = fallbackVerses[dayOfYear % fallbackVerses.length];
 
     setState(() {
       _dailyVerse = v['text'];
@@ -177,7 +180,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
           child: _buildFlyerWidget(),
         ),
         delay: const Duration(milliseconds: 100),
-        pixelRatio: 3.0,
+        pixelRatio: 1.0,
       );
 
       final dir = await getTemporaryDirectory();
@@ -217,7 +220,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     ];
     final dateLabel = '${now.day} ${months[now.month - 1]} ${now.year}';
 
-    // Pick a random Bible background for variety
+    // Same background for all users each day (based on day_of_year)
     final backgrounds = [
       'assets/images/bible_bg/bible_bg1.jpg',
       'assets/images/bible_bg/bible_bg3.jpg',
@@ -228,177 +231,215 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       'assets/images/bible_bg/bible_bg12.jpg',
       'assets/images/bible_bg/bible_bg14.jpg',
     ];
-    final bgIndex = DateTime.now().millisecondsSinceEpoch % backgrounds.length;
-    final bgImage = backgrounds[bgIndex];
+    final startOfYear = DateTime(now.year, 1, 1);
+    final dayOfYear = now.difference(startOfYear).inDays + 1;
+    final bgImage = backgrounds[dayOfYear % backgrounds.length];
 
+    // Universal square size: 1080 x 1080 (works on all social media)
     return Container(
-      width: 800,
-      height: 1000,
+      width: 1080,
+      height: 1080,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
         image: DecorationImage(
           image: AssetImage(bgImage),
           fit: BoxFit.cover,
         ),
       ),
       child: Container(
+        // Lighter overlay so Bible image shows through
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
+              Colors.black.withOpacity(0.25),
               Colors.black.withOpacity(0.55),
-              Colors.black.withOpacity(0.70),
-              Colors.black.withOpacity(0.85),
+              Colors.black.withOpacity(0.80),
             ],
+            stops: const [0.0, 0.5, 1.0],
           ),
         ),
-        padding: const EdgeInsets.fromLTRB(36, 44, 36, 32),
+        padding: const EdgeInsets.fromLTRB(60, 55, 60, 55),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Top - date
+            // Top: date
             Text(
               dateLabel,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 15,
-                letterSpacing: 1.2,
+                color: Colors.white,
+                fontSize: 26,
+                letterSpacing: 2,
+                fontWeight: FontWeight.w500,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 10,
+                    offset: Offset(0, 2),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 24),
-            // Gold divider
             Container(
-              width: 70,
-              height: 3,
+              width: 130,
+              height: 5,
               decoration: BoxDecoration(
                 color: const Color(0xFFFFD700),
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(6),
               ),
             ),
-            const SizedBox(height: 20),
-            // Label
+            const SizedBox(height: 24),
             const Text(
               'VERSE OF THE DAY',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Color(0xFFFFD700),
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 3,
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 6,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    blurRadius: 10,
+                    offset: Offset(0, 2),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 40),
-            // Verse content - bold, centered
+            // Middle: verse text (centered)
             Expanded(
               child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      verse,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        height: 1.45,
-                        letterSpacing: 0.3,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black87,
-                            blurRadius: 8,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (ref.isNotEmpty) ...[
-                      const SizedBox(height: 28),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFD700).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(30),
-                          border: Border.all(
-                            color: const Color(0xFFFFD700),
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Text(
-                          ref,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Color(0xFFFFD700),
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        verse,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 32,
+                          fontWeight: FontWeight.w900,
+                          height: 1.35,
+                          letterSpacing: 0.5,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black,
+                              blurRadius: 15,
+                              offset: Offset(0, 4),
+                            ),
+                            Shadow(
+                              color: Colors.black87,
+                              blurRadius: 25,
+                              offset: Offset(0, 0),
+                            ),
+                          ],
                         ),
                       ),
+                      if (ref.isNotEmpty) ...[
+                        const SizedBox(height: 30),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 50,
+                            vertical: 20,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(60),
+                            border: Border.all(
+                              color: const Color(0xFFFFD700),
+                              width: 3,
+                            ),
+                          ),
+                          child: Text(
+                            ref,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Color(0xFFFFD700),
+                              fontSize: 44,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 30),
-            // BOTTOM - logo and church name
+            // Bottom: logo and church name
             Container(
-              padding: const EdgeInsets.only(top: 20),
-              decoration: const BoxDecoration(
+              padding: const EdgeInsets.only(top: 40),
+              decoration: BoxDecoration(
                 border: Border(
-                  top: BorderSide(color: Colors.white24, width: 1),
+                  top: BorderSide(
+                    color: Colors.white.withOpacity(0.4),
+                    width: 1,
+                  ),
                 ),
               ),
               child: Column(
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(24),
                     child: Image.asset(
                       'assets/images/nggc-logo.png',
-                      width: 64,
-                      height: 64,
+                      width: 90,
+                      height: 90,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(
-                        width: 64,
-                        height: 64,
+                        width: 90,
+                        height: 90,
                         decoration: BoxDecoration(
                           color: const Color(0xFFFFD700),
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(24),
                         ),
                         child: const Icon(
                           Icons.church,
                           color: Color(0xFF0D1B5E),
-                          size: 32,
+                          size: 66,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 20),
                   const Text(
                     'NEW GENERATION\nGOSPEL CHURCH',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Color(0xFFFFD700),
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 3,
                       height: 1.3,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black,
+                          blurRadius: 10,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 14),
                   const Text(
                     'nggcwebsite.netlify.app',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11,
-                      letterSpacing: 0.5,
+                      color: Colors.white,
+                      fontSize: 16,
+                      letterSpacing: 1,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black,
+                          blurRadius: 8,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
                     ),
                   ),
                 ],
