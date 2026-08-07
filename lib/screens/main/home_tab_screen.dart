@@ -51,7 +51,6 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       _verseError = false;
     });
 
-    // Step 1: Try Hive cache first (instant + offline)
     final cached = DailyVerseService.getTodaysVerse();
     if (cached != null &&
         (cached['text'] ?? '').isNotEmpty &&
@@ -62,12 +61,10 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
         _verseLoading = false;
         _verseError = false;
       });
-      // Optional: still try to sync in background
       DailyVerseService.syncIfNeeded();
       return;
     }
 
-    // Step 2: If no cache, try API
     try {
       final response = await ApiService.get('/verses/daily');
       if (!mounted) return;
@@ -85,7 +82,6 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
             _verseLoading = false;
             _verseError = false;
           });
-          // Trigger background full sync
           DailyVerseService.syncIfNeeded(force: true);
           return;
         }
@@ -97,7 +93,6 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
   }
 
   String? _extractDailyVerseReference(Map<String, dynamic> data) {
-    // Handle when reference is a nested object
     final refRaw = data['reference'];
     if (refRaw is Map) {
       final ref = Map<String, dynamic>.from(refRaw);
@@ -113,12 +108,10 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       if (book.isNotEmpty) return book;
     }
 
-    // Handle when reference is a plain string
     if (refRaw is String && refRaw.trim().isNotEmpty) {
       return refRaw.trim();
     }
 
-    // Handle flat fields
     final book =
         (data['book'] ?? data['book_name'])?.toString().trim() ?? '';
     final chapter = data['chapter']?.toString().trim() ?? '';
@@ -173,7 +166,6 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       },
     ];
 
-    // Use day_of_year so all users see same verse each day (offline fallback)
     final now = DateTime.now();
     final startOfYear = DateTime(now.year, 1, 1);
     final dayOfYear = now.difference(startOfYear).inDays + 1;
@@ -195,12 +187,23 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
 
     try {
       final Uint8List imageBytes = await _screenshotController.captureFromWidget(
-        Material(
-          color: Colors.transparent,
-          child: _buildFlyerWidget(),
+        MediaQuery(
+          data: const MediaQueryData(
+            size: Size(1200, 800),
+            devicePixelRatio: 1.0,
+          ),
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: Material(
+              color: Colors.transparent,
+              child: _buildFlyerWidget(),
+            ),
+          ),
         ),
-        delay: const Duration(milliseconds: 100),
-        pixelRatio: 1.0,
+        delay: const Duration(milliseconds: 200),
+        pixelRatio: 2.0,
+        targetSize: const Size(1200, 800),
+        context: context,
       );
 
       final dir = await getTemporaryDirectory();
@@ -242,7 +245,6 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     final ref = _dailyVerseRef?.trim() ?? '';
     final now = DateTime.now();
 
-    // Same background for all users on same day
     final backgrounds = [
       'assets/images/bible_bg/bible_bg1.jpg',
       'assets/images/bible_bg/bible_bg2.jpg',
@@ -260,10 +262,8 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     final dayOfYear = now.difference(startOfYear).inDays + 1;
     final bgImage = backgrounds[dayOfYear % backgrounds.length];
 
-    // Auto-scale verse font based on length
     final verseLength = verse.length;
     double verseFontSize;
-    // Auto-scale font size based on verse length
     if (verseLength < 60) {
       verseFontSize = 62;
     } else if (verseLength < 100) {
@@ -278,14 +278,12 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       verseFontSize = 28;
     }
 
-    // Flyer dimensions: 1200x800 (3:2 to match Bible photos)
     return SizedBox(
       width: 1200,
       height: 800,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Layer 1: Bible background image
           Image.asset(
             bgImage,
             fit: BoxFit.cover,
@@ -293,8 +291,6 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
               color: const Color(0xFF0D1B5E),
             ),
           ),
-
-          // Layer 2: Subtle overlay for text readability
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -309,11 +305,8 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
               ),
             ),
           ),
-
-          // Layer 3: Main content
           Column(
             children: [
-              // TOP: Date pill
               Padding(
                 padding: const EdgeInsets.only(top: 40),
                 child: Container(
@@ -340,7 +333,6 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                   ),
                 ),
               ),
-              // MIDDLE: verse + reference
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(80, 30, 80, 20),
@@ -404,8 +396,6 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                   ),
                 ),
               ),
-
-              // Lower Third strip
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
@@ -424,7 +414,6 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Logo
                     ClipRRect(
                       borderRadius: BorderRadius.circular(14),
                       child: Image.asset(
@@ -448,7 +437,6 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                       ),
                     ),
                     const SizedBox(width: 20),
-                    // Church name + website
                     Expanded(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -484,6 +472,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       ),
     );
   }
+
   Future<void> _loadTodayLesson() async {
     setState(() => _lessonLoading = true);
 
