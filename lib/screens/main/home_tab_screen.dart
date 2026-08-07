@@ -243,16 +243,15 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     // Auto-scale verse font based on length
     final verseLength = verse.length;
     double verseFontSize;
-    if (verseLength < 80) {
-      verseFontSize = 52;
-    } else if (verseLength < 140) {
-      verseFontSize = 44;
+    // Base font size - FittedBox will scale down if needed
+    if (verseLength < 60) {
+      verseFontSize = 60;
+    } else if (verseLength < 120) {
+      verseFontSize = 48;
     } else if (verseLength < 200) {
-      verseFontSize = 38;
-    } else if (verseLength < 280) {
-      verseFontSize = 32;
+      verseFontSize = 40;
     } else {
-      verseFontSize = 28;
+      verseFontSize = 34;
     }
 
     // Flyer dimensions: 1200x800 (3:2 to match Bible photos)
@@ -326,27 +325,35 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Flexible(
-                        child: Text(
-                          verse,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: verseFontSize,
-                            fontWeight: FontWeight.w900,
-                            height: 1.4,
-                            letterSpacing: 0.4,
-                            shadows: const [
-                              Shadow(
-                                color: Colors.black,
-                                blurRadius: 14,
-                                offset: Offset(0, 3),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxWidth: 1000,
+                            ),
+                            child: Text(
+                              verse,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: verseFontSize,
+                                fontWeight: FontWeight.w900,
+                                height: 1.4,
+                                letterSpacing: 0.4,
+                                shadows: const [
+                                  Shadow(
+                                    color: Colors.black,
+                                    blurRadius: 14,
+                                    offset: Offset(0, 3),
+                                  ),
+                                  Shadow(
+                                    color: Colors.black87,
+                                    blurRadius: 22,
+                                    offset: Offset(0, 0),
+                                  ),
+                                ],
                               ),
-                              Shadow(
-                                color: Colors.black87,
-                                blurRadius: 22,
-                                offset: Offset(0, 0),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
