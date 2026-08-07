@@ -10,6 +10,7 @@ import 'providers/theme_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
+import 'services/battery_optimization_service.dart';
 import 'services/bible_loader_service.dart';
 import 'services/manuals_loader_service.dart';
 import 'services/daily_verse_service.dart';
@@ -48,9 +49,6 @@ void main() async {
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// NGGCApp - Root widget
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class NGGCApp extends ConsumerWidget {
   const NGGCApp({super.key});
 
@@ -67,10 +65,6 @@ class NGGCApp extends ConsumerWidget {
   }
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// AppRouter
-// Shows splash -> onboarding (first time) -> Login or Home
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class AppRouter extends ConsumerStatefulWidget {
   const AppRouter({super.key});
 
@@ -81,6 +75,7 @@ class AppRouter extends ConsumerStatefulWidget {
 class _AppRouterState extends ConsumerState<AppRouter> {
   bool _splashDone = false;
   bool _onboardingComplete = false;
+  bool _batteryPromptShown = false;
   String _statusText = 'Loading...';
 
   @override
@@ -96,7 +91,6 @@ class _AppRouterState extends ConsumerState<AppRouter> {
     setState(() => _statusText = 'Preparing manuals...');
     await ManualsLoaderService.ensureManualsLoaded();
 
-    // Sync daily verses in background (does not block UI)
     setState(() => _statusText = 'Syncing daily verses...');
     DailyVerseService.syncIfNeeded().then((success) {
       if (success) {
@@ -114,6 +108,18 @@ class _AppRouterState extends ConsumerState<AppRouter> {
       _onboardingComplete = onboardingDone;
       _splashDone = true;
     });
+  }
+
+  /// Show battery optimization prompt after successful login
+  Future<void> _maybeShowBatteryPrompt() async {
+    if (_batteryPromptShown) return;
+    _batteryPromptShown = true;
+
+    // Delay a bit so home screen renders first
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+
+    await BatteryOptimizationService.showFirstTimePromptIfNeeded(context);
   }
 
   @override
@@ -137,6 +143,10 @@ class _AppRouterState extends ConsumerState<AppRouter> {
     }
 
     if (authState.isAuthenticated) {
+      // Trigger battery prompt when user is authenticated (once)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _maybeShowBatteryPrompt();
+      });
       return const HomeScreen();
     }
 
@@ -144,9 +154,6 @@ class _AppRouterState extends ConsumerState<AppRouter> {
   }
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// _SplashBody - Original splash design preserved
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _SplashBody extends StatelessWidget {
   final String statusText;
 
@@ -247,9 +254,6 @@ class _SplashBody extends StatelessWidget {
   }
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// LiaConceptBadge
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class LiaConceptBadge extends StatelessWidget {
   const LiaConceptBadge({super.key});
 

@@ -6,11 +6,9 @@ import 'package:timezone/timezone.dart' as tz;
 
 import 'daily_verse_service.dart';
 
-/// ─────────────────────────────────────────────────────────
 /// NotificationService
 /// Daily Bible verse notifications at 6 AM and 12 PM
 /// Uses offline Hive cache from DailyVerseService
-/// ─────────────────────────────────────────────────────────
 class NotificationService {
   NotificationService._();
 
@@ -28,7 +26,6 @@ class NotificationService {
   static const String _channelDesc =
       'Get a daily Bible verse at 6 AM and 12 PM';
 
-  // Fallback verses (only used if no Hive cache)
   static const List<Map<String, String>> _fallbackVerses = [
     {'text': 'For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.', 'ref': 'John 3:16'},
     {'text': 'I can do all things through Christ which strengtheneth me.', 'ref': 'Philippians 4:13'},
@@ -93,7 +90,6 @@ class NotificationService {
     return granted ?? false;
   }
 
-  /// Get today's verse - Hive first, then fallback
   static Map<String, String> _getTodaysVerse() {
     final cached = DailyVerseService.getTodaysVerse();
     if (cached != null &&
@@ -105,7 +101,6 @@ class NotificationService {
       };
     }
 
-    // Fallback
     final now = DateTime.now();
     final dayOfYear =
         now.difference(DateTime(now.year, 1, 1)).inDays + 1;
@@ -113,7 +108,6 @@ class NotificationService {
     return {'text': v['text']!, 'ref': v['ref']!};
   }
 
-  /// Schedule 6 AM + 12 PM notifications
   static Future<void> scheduleDailyVerseNotifications() async {
     if (!_initialized) await initialize();
 
@@ -121,13 +115,13 @@ class NotificationService {
     await _plugin.cancel(_dailyVerse12PmId);
 
     final verse = _getTodaysVerse();
-    final body = '"${verse['text']}"\n\n— ${verse['ref']}';
+    final body = '"${verse['text']}"\n\n- ${verse['ref']}';
 
     await _scheduleAtTime(
       id: _dailyVerse6AmId,
       hour: 6,
       minute: 0,
-      title: '🌅 Good Morning Verse',
+      title: 'Good Morning Verse',
       body: body,
     );
 
@@ -135,7 +129,7 @@ class NotificationService {
       id: _dailyVerse12PmId,
       hour: 12,
       minute: 0,
-      title: '☀️ Midday Verse',
+      title: 'Midday Verse',
       body: body,
     );
 
@@ -202,7 +196,7 @@ class NotificationService {
     return scheduled;
   }
 
-  /// Show test notification (for debugging)
+  /// Show test notification immediately (for debug button)
   static Future<void> showTestNotification() async {
     if (!_initialized) await initialize();
     final verse = _getTodaysVerse();
@@ -229,9 +223,50 @@ class NotificationService {
 
     await _plugin.show(
       _generalId,
-      '📖 Verse of the Day (Test)',
-      '"${verse['text']}"\n\n— ${verse['ref']}',
+      'Verse of the Day (Test)',
+      '"${verse['text']}"\n\n- ${verse['ref']}',
       details,
+    );
+  }
+
+  /// Schedule a test notification in 1 minute (for testing)
+  static Future<void> scheduleTestIn1Minute() async {
+    if (!_initialized) await initialize();
+    final verse = _getTodaysVerse();
+
+    const androidDetails = AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      channelDescription: _channelDesc,
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
+      color: Color(0xFF1A237E),
+      playSound: true,
+      enableVibration: true,
+      styleInformation: BigTextStyleInformation(''),
+    );
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    final scheduled = tz.TZDateTime.now(tz.local).add(const Duration(minutes: 1));
+
+    await _plugin.zonedSchedule(
+      9999,
+      'Test - Verse in 1 minute',
+      '"${verse['text']}"\n\n- ${verse['ref']}',
+      scheduled,
+      details,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
 

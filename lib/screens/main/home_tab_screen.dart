@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -37,6 +38,23 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
   Map<String, dynamic>? _todayLesson;
   String? _todayLessonDate;
   bool _lessonLoading = true;
+
+  // Per-image gradient opacity tuning
+  // Higher opacity = darker overlay (needed for bright images)
+  // Lower opacity = lighter overlay (needed for already-dark images)
+  static const Map<String, double> _imageOverlayOpacity = {
+    'bible_bg1.jpg': 0.55,   // Holy Scriptures book - medium
+    'bible_bg2.jpg': 0.65,   // Bible with pen - bright
+    'bible_bg3.jpg': 0.60,   // Bible with fairy lights - warm/bright
+    'bible_bg4.jpg': 0.55,   // Bible close-up - medium
+    'bible_bg5.jpg': 0.35,   // Bible on dark bg - already dark
+    'bible_bg6.jpg': 0.55,   // Hands holding Bible - medium
+    'bible_bg7.jpg': 0.50,   // Person praying - medium
+    'bible_bg8.jpg': 0.65,   // Open Bible pink pages - bright
+    'bible_bg9.jpg': 0.55,   // Open Bible - medium
+    'bible_bg10.jpg': 0.60,  // Bible on cloth - medium-bright
+    'bible_bg11.jpg': 0.35,  // Open Bible dark - already dark
+  };
 
   @override
   void initState() {
@@ -246,37 +264,23 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     final now = DateTime.now();
 
     final backgrounds = [
-      'assets/images/bible_bg/bible_bg1.jpg',
-      'assets/images/bible_bg/bible_bg2.jpg',
-      'assets/images/bible_bg/bible_bg3.jpg',
-      'assets/images/bible_bg/bible_bg4.jpg',
-      'assets/images/bible_bg/bible_bg5.jpg',
-      'assets/images/bible_bg/bible_bg6.jpg',
-      'assets/images/bible_bg/bible_bg7.jpg',
-      'assets/images/bible_bg/bible_bg8.jpg',
-      'assets/images/bible_bg/bible_bg9.jpg',
-      'assets/images/bible_bg/bible_bg10.jpg',
-      'assets/images/bible_bg/bible_bg11.jpg',
+      'bible_bg1.jpg',
+      'bible_bg2.jpg',
+      'bible_bg3.jpg',
+      'bible_bg4.jpg',
+      'bible_bg5.jpg',
+      'bible_bg6.jpg',
+      'bible_bg7.jpg',
+      'bible_bg8.jpg',
+      'bible_bg9.jpg',
+      'bible_bg10.jpg',
+      'bible_bg11.jpg',
     ];
     final startOfYear = DateTime(now.year, 1, 1);
     final dayOfYear = now.difference(startOfYear).inDays + 1;
-    final bgImage = backgrounds[dayOfYear % backgrounds.length];
-
-    final verseLength = verse.length;
-    double verseFontSize;
-    if (verseLength < 60) {
-      verseFontSize = 62;
-    } else if (verseLength < 100) {
-      verseFontSize = 54;
-    } else if (verseLength < 140) {
-      verseFontSize = 46;
-    } else if (verseLength < 180) {
-      verseFontSize = 40;
-    } else if (verseLength < 240) {
-      verseFontSize = 34;
-    } else {
-      verseFontSize = 28;
-    }
+    final bgFile = backgrounds[dayOfYear % backgrounds.length];
+    final bgImagePath = 'assets/images/bible_bg/$bgFile';
+    final baseOpacity = _imageOverlayOpacity[bgFile] ?? 0.55;
 
     return SizedBox(
       width: 1200,
@@ -284,29 +288,33 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       child: Stack(
         fit: StackFit.expand,
         children: [
+          // Layer 1: Bible background image
           Image.asset(
-            bgImage,
+            bgImagePath,
             fit: BoxFit.cover,
             errorBuilder: (_, __, ___) => Container(
               color: const Color(0xFF0D1B5E),
             ),
           ),
+          // Layer 2: Gradient overlay - opacity tuned per image
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withOpacity(0.30),
-                  Colors.black.withOpacity(0.45),
-                  Colors.black.withOpacity(0.85),
+                  Colors.black.withOpacity(baseOpacity * 0.6),
+                  Colors.black.withOpacity(baseOpacity * 0.9),
+                  Colors.black.withOpacity(0.90),
                 ],
                 stops: const [0.0, 0.55, 1.0],
               ),
             ),
           ),
+          // Layer 3: Main content
           Column(
             children: [
+              // TOP: Date pill
               Padding(
                 padding: const EdgeInsets.only(top: 40),
                 child: Container(
@@ -333,40 +341,47 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                   ),
                 ),
               ),
+              // MIDDLE: verse (AutoSizeText) + reference
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(80, 30, 80, 20),
+                  padding: const EdgeInsets.fromLTRB(70, 25, 70, 20),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Flexible(
-                        child: Text(
-                          verse,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: verseFontSize,
-                            fontWeight: FontWeight.w900,
-                            height: 1.4,
-                            letterSpacing: 0.4,
-                            shadows: const [
-                              Shadow(
-                                color: Colors.black,
-                                blurRadius: 14,
-                                offset: Offset(0, 3),
-                              ),
-                              Shadow(
-                                color: Colors.black87,
-                                blurRadius: 22,
-                                offset: Offset(0, 0),
-                              ),
-                            ],
+                      Expanded(
+                        child: Center(
+                          child: AutoSizeText(
+                            verse,
+                            textAlign: TextAlign.center,
+                            maxLines: 8,
+                            minFontSize: 22,
+                            maxFontSize: 68,
+                            stepGranularity: 1,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 62,
+                              fontWeight: FontWeight.w900,
+                              height: 1.35,
+                              letterSpacing: 0.3,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black,
+                                  blurRadius: 16,
+                                  offset: Offset(0, 3),
+                                ),
+                                Shadow(
+                                  color: Colors.black87,
+                                  blurRadius: 24,
+                                  offset: Offset(0, 0),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                       if (ref.isNotEmpty) ...[
-                        const SizedBox(height: 28),
+                        const SizedBox(height: 24),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 32,
@@ -396,6 +411,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                   ),
                 ),
               ),
+              // Lower Third strip
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
@@ -403,7 +419,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                   vertical: 22,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.85),
+                  color: Colors.black.withOpacity(0.88),
                   border: const Border(
                     top: BorderSide(
                       color: Color(0xFFFFD700),
@@ -589,18 +605,8 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     final d = _tryParseDate(isoDate);
     if (d == null) return '';
     const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec'
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -789,8 +795,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
               if (isAdmin) ...[
                 const SizedBox(width: 8),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: AppTheme.accentGold.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(20),
@@ -1051,8 +1056,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                   item.subtitle,
                   style: TextStyle(
                     fontSize: 11,
-                    color:
-                        isDark ? Colors.white60 : AppTheme.textSecondary,
+                    color: isDark ? Colors.white60 : AppTheme.textSecondary,
                   ),
                 ),
               ],
@@ -1172,9 +1176,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                       topic,
                       style: TextStyle(
                         fontSize: 12,
-                        color: isDark
-                            ? Colors.white60
-                            : AppTheme.textSecondary,
+                        color: isDark ? Colors.white60 : AppTheme.textSecondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
