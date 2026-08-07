@@ -44,6 +44,10 @@ dependencies:
   # Local notifications display
   flutter_local_notifications: ^17.2.3
 
+  # Timezone for scheduling notifications at exact time
+  timezone: ^0.9.4
+  flutter_timezone: ^3.0.1
+
   # Google Fonts typography
   google_fonts: ^6.2.1
 

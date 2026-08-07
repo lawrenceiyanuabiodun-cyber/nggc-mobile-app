@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
+import '../../services/daily_verse_service.dart';
 import '../../services/manuals_loader_service.dart';
 import '../../theme/app_theme.dart';
 import '../announcements/announcements_screen.dart';
@@ -50,6 +51,23 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       _verseError = false;
     });
 
+    // Step 1: Try Hive cache first (instant + offline)
+    final cached = DailyVerseService.getTodaysVerse();
+    if (cached != null &&
+        (cached['text'] ?? '').isNotEmpty &&
+        (cached['reference'] ?? '').isNotEmpty) {
+      setState(() {
+        _dailyVerse = cached['text'];
+        _dailyVerseRef = cached['reference'];
+        _verseLoading = false;
+        _verseError = false;
+      });
+      // Optional: still try to sync in background
+      DailyVerseService.syncIfNeeded();
+      return;
+    }
+
+    // Step 2: If no cache, try API
     try {
       final response = await ApiService.get('/verses/daily');
       if (!mounted) return;
@@ -67,6 +85,8 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
             _verseLoading = false;
             _verseError = false;
           });
+          // Trigger background full sync
+          DailyVerseService.syncIfNeeded(force: true);
           return;
         }
       }
@@ -243,15 +263,19 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     // Auto-scale verse font based on length
     final verseLength = verse.length;
     double verseFontSize;
-    // Base font size - FittedBox will scale down if needed
+    // Auto-scale font size based on verse length
     if (verseLength < 60) {
-      verseFontSize = 60;
-    } else if (verseLength < 120) {
-      verseFontSize = 48;
-    } else if (verseLength < 200) {
+      verseFontSize = 62;
+    } else if (verseLength < 100) {
+      verseFontSize = 54;
+    } else if (verseLength < 140) {
+      verseFontSize = 46;
+    } else if (verseLength < 180) {
       verseFontSize = 40;
-    } else {
+    } else if (verseLength < 240) {
       verseFontSize = 34;
+    } else {
+      verseFontSize = 28;
     }
 
     // Flyer dimensions: 1200x800 (3:2 to match Bible photos)
@@ -325,35 +349,27 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Flexible(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(
-                              maxWidth: 1000,
-                            ),
-                            child: Text(
-                              verse,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: verseFontSize,
-                                fontWeight: FontWeight.w900,
-                                height: 1.4,
-                                letterSpacing: 0.4,
-                                shadows: const [
-                                  Shadow(
-                                    color: Colors.black,
-                                    blurRadius: 14,
-                                    offset: Offset(0, 3),
-                                  ),
-                                  Shadow(
-                                    color: Colors.black87,
-                                    blurRadius: 22,
-                                    offset: Offset(0, 0),
-                                  ),
-                                ],
+                        child: Text(
+                          verse,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: verseFontSize,
+                            fontWeight: FontWeight.w900,
+                            height: 1.4,
+                            letterSpacing: 0.4,
+                            shadows: const [
+                              Shadow(
+                                color: Colors.black,
+                                blurRadius: 14,
+                                offset: Offset(0, 3),
                               ),
-                            ),
+                              Shadow(
+                                color: Colors.black87,
+                                blurRadius: 22,
+                                offset: Offset(0, 0),
+                              ),
+                            ],
                           ),
                         ),
                       ),

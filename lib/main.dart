@@ -12,6 +12,7 @@ import 'screens/home/home_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'services/bible_loader_service.dart';
 import 'services/manuals_loader_service.dart';
+import 'services/daily_verse_service.dart';
 import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 
@@ -38,6 +39,7 @@ void main() async {
   await Hive.openBox(AppConfig.notesBoxName);
   await Hive.openBox(AppConfig.favoritesBoxName);
   await NotificationService.initialize();
+  await DailyVerseService.ensureInitialized();
 
   runApp(
     const ProviderScope(
@@ -46,9 +48,9 @@ void main() async {
   );
 }
 
-// ─────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // NGGCApp - Root widget
-// ─────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class NGGCApp extends ConsumerWidget {
   const NGGCApp({super.key});
 
@@ -65,10 +67,10 @@ class NGGCApp extends ConsumerWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // AppRouter
 // Shows splash -> onboarding (first time) -> Login or Home
-// ─────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class AppRouter extends ConsumerStatefulWidget {
   const AppRouter({super.key});
 
@@ -93,6 +95,14 @@ class _AppRouterState extends ConsumerState<AppRouter> {
 
     setState(() => _statusText = 'Preparing manuals...');
     await ManualsLoaderService.ensureManualsLoaded();
+
+    // Sync daily verses in background (does not block UI)
+    setState(() => _statusText = 'Syncing daily verses...');
+    DailyVerseService.syncIfNeeded().then((success) {
+      if (success) {
+        NotificationService.scheduleDailyVerseNotifications();
+      }
+    });
 
     final onboardingDone = await OnboardingHelper.isComplete();
 
@@ -134,9 +144,9 @@ class _AppRouterState extends ConsumerState<AppRouter> {
   }
 }
 
-// ─────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // _SplashBody - Original splash design preserved
-// ─────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _SplashBody extends StatelessWidget {
   final String statusText;
 
@@ -237,9 +247,9 @@ class _SplashBody extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // LiaConceptBadge
-// ─────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class LiaConceptBadge extends StatelessWidget {
   const LiaConceptBadge({super.key});
 

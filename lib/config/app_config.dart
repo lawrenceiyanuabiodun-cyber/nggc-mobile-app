@@ -3,19 +3,19 @@
 class AppConfig {
   AppConfig._(); // prevent instantiation
 
-  // ── App Identity ───────────────────────────────────────────
+  // â”€â”€ App Identity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   static const String appDisplayName = 'NGGC';
   static const String appFullName = 'New Generation Gospel Church';
   static const String appTagline = 'Sunday School';
   static const String packageName = 'com.nggc.nggc';
   static const String appVersion = '1.0.0';
 
-  // ── Backend API ────────────────────────────────────────────
-  /// Development — local FastAPI server
+  // â”€â”€ Backend API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  /// Development â€” local FastAPI server
   /// 10.0.2.2 is the Android emulator's alias for localhost
   static const String _devBaseUrl = 'http://10.0.2.2:8000';
 
-  /// Production — Render cloud backend (LIVE)
+  /// Production â€” Render cloud backend (LIVE)
   static const String _prodBaseUrl = 'https://nggc-api.onrender.com';
 
   /// Toggle this to switch environments
@@ -25,12 +25,12 @@ class AppConfig {
   static String get baseUrl => isProduction ? _prodBaseUrl : _devBaseUrl;
   static String get apiUrl => '$baseUrl/api';
 
-  // ── Auth ───────────────────────────────────────────────────
+  // â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   static const String tokenStorageKey = 'nggc_auth_token';
   static const String userStorageKey = 'nggc_user_data';
   static const String deviceIdKey = 'nggc_device_id';
 
-  // ── Hive Box Names ─────────────────────────────────────────
+  // â”€â”€ Hive Box Names â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   static const String bibleBoxName = 'bible_cache';
   static const String lessonsBoxName = 'lessons_cache';
   static const String notesBoxName = 'user_notes';
@@ -39,12 +39,12 @@ class AppConfig {
   static const String settingsBoxName = 'app_settings';
   static const String verseBoxName = 'verse_cache';
 
-  // ── Timeouts ───────────────────────────────────────────────
+  // â”€â”€ Timeouts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   /// 60 seconds to allow Render free tier to wake up from sleep
-  static const Duration apiTimeout = Duration(seconds: 60);
+  static const Duration apiTimeout = Duration(seconds: 120);
   static const Duration cacheExpiry = Duration(hours: 24);
 
-  // ── Pagination ─────────────────────────────────────────────
+  // â”€â”€ Pagination â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   static const int defaultPageSize = 20;
   static const int biblePageSize = 50;
 }
