@@ -373,7 +373,7 @@ class _PopupContentState extends State<_PopupContent> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('BIBLE PASSAGE',
+                          const Text('BIBLE PASSAGE',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
@@ -589,7 +589,7 @@ class _PopupContentState extends State<_PopupContent> {
             width: 28,
             padding: const EdgeInsets.only(top: 2),
             child: Text(v.number,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.accentGoldDark,

@@ -486,11 +486,11 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                       ),
                     ),
                     const SizedBox(width: 20),
-                    Expanded(
+                    const Expanded(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Text(
                             'NEW GENERATION GOSPEL CHURCH',
                             style: TextStyle(

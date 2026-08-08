@@ -102,9 +102,9 @@ class BatteryOptimizationService {
         ),
         title: Row(
           children: [
-            Icon(
+            const Icon(
               Icons.notifications_active,
-              color: const Color(0xFFFFD700),
+              color: Color(0xFFFFD700),
               size: 28,
             ),
             const SizedBox(width: 12),

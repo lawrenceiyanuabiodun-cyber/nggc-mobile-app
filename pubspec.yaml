@@ -1,4 +1,4 @@
-name: nggc
+﻿name: nggc
 description: "New Generation Gospel Church Sunday School App"
 publish_to: 'none'
 version: 1.0.0+1
@@ -58,11 +58,6 @@ flutter:
     - assets/images/
     - assets/images/bible_bg/
     - assets/bibles/
-    - assets/bibles/asv_bible.json
-    - assets/bibles/bbe_bible.json
-    - assets/bibles/kjva_bible.json
-    - assets/bibles/webster_bible.json
-    - assets/bibles/ylt_bible.json
     - assets/manuals/
 
   fonts:

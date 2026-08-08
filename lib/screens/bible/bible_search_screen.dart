@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../../services/bible_loader_service.dart';
 import '../../theme/app_theme.dart';
@@ -343,7 +343,7 @@ class _BibleSearchScreenState extends State<BibleSearchScreen> {
                     ),
                   ),
                   const Spacer(),
-                  Icon(
+                  const Icon(
                     Icons.chevron_right,
                     color: AppTheme.textHint,
                     size: 16,

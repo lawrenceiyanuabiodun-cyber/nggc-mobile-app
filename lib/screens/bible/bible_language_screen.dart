@@ -100,7 +100,7 @@ class _BibleLanguageScreenState extends State<BibleLanguageScreen> {
                       ...BibleLoaderService.translations
                           .where((t) => t['key'] != 'yoruba')
                           .map((t) => _buildCard(t, isDark))
-                          .toList(),
+                          ,
 
                       const SizedBox(height: 20),
 
@@ -110,14 +110,14 @@ class _BibleLanguageScreenState extends State<BibleLanguageScreen> {
                       ...BibleLoaderService.translations
                           .where((t) => t['key'] == 'yoruba')
                           .map((t) => _buildCard(t, isDark))
-                          .toList(),
+                          ,
 
                       const SizedBox(height: 20),
 
                       // Offline note
-                      Row(
+                      const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
+                        children: [
                           Icon(Icons.offline_bolt_outlined,
                               size: 14, color: AppTheme.textHint),
                           SizedBox(width: 6),
@@ -129,9 +129,9 @@ class _BibleLanguageScreenState extends State<BibleLanguageScreen> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Row(
+                      const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
+                        children: [
                           Icon(Icons.history,
                               size: 13, color: AppTheme.textHint),
                           SizedBox(width: 5),

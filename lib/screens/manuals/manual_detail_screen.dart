@@ -125,9 +125,7 @@ class _ManualDetailScreenState extends State<ManualDetailScreen> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            language[0].toUpperCase() +
-                                language.substring(1) +
-                                ' • ${_lessons.length} lessons',
+                            '${language[0].toUpperCase()}${language.substring(1)} • ${_lessons.length} lessons',
                             style: const TextStyle(
                               fontSize: 12,
                               color: Colors.white70,
