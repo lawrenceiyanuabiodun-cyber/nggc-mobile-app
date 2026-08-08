@@ -21,10 +21,16 @@ class NotificationService {
   static const int _dailyVerse12PmId = 1002;
   static const int _generalId = 2001;
 
-  static const String _channelId = 'nggc_daily_verse';
+  // New channel with custom voice sound. A new channel ID is required
+  // because Android locks a channel's sound the first time it's created
+  // on a device - changing the sound in code alone won't affect existing
+  // installs already using the old channel.
+  static const String _channelId = 'nggc_daily_verse_v2';
   static const String _channelName = 'Daily Bible Verse';
   static const String _channelDesc =
       'Get a daily Bible verse at 6 AM and 12 PM';
+
+  static const String _notificationTitle = 'Bible Verse of the Day';
 
   static const List<Map<String, String>> _fallbackVerses = [
     {'text': 'For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.', 'ref': 'John 3:16'},
@@ -70,10 +76,11 @@ class NotificationService {
       description: _channelDesc,
       importance: Importance.high,
       playSound: true,
+      sound: RawResourceAndroidNotificationSound('bible_verse_alert'),
     );
 
     await _plugin
-        .resolvePlatformSpecificImplementation<
+        .resolvePlatformSpecificImplementation
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(androidChannel);
 
@@ -81,7 +88,7 @@ class NotificationService {
   }
 
   static Future<bool> requestPermissions() async {
-    final android = _plugin.resolvePlatformSpecificImplementation<
+    final android = _plugin.resolvePlatformSpecificImplementation
         AndroidFlutterLocalNotificationsPlugin>();
     final granted = await android?.requestNotificationsPermission();
     try {
@@ -121,7 +128,7 @@ class NotificationService {
       id: _dailyVerse6AmId,
       hour: 6,
       minute: 0,
-      title: 'Good Morning Verse',
+      title: _notificationTitle,
       body: body,
     );
 
@@ -129,7 +136,7 @@ class NotificationService {
       id: _dailyVerse12PmId,
       hour: 12,
       minute: 0,
-      title: 'Midday Verse',
+      title: _notificationTitle,
       body: body,
     );
 
@@ -152,6 +159,7 @@ class NotificationService {
       icon: '@mipmap/ic_launcher',
       color: Color(0xFF1A237E),
       playSound: true,
+      sound: RawResourceAndroidNotificationSound('bible_verse_alert'),
       enableVibration: true,
       styleInformation: BigTextStyleInformation(''),
     );
@@ -159,6 +167,7 @@ class NotificationService {
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      sound: 'bible_verse_alert.mp3',
     );
     const details = NotificationDetails(
       android: androidDetails,
@@ -209,12 +218,15 @@ class NotificationService {
       priority: Priority.high,
       icon: '@mipmap/ic_launcher',
       color: Color(0xFF1A237E),
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound('bible_verse_alert'),
       styleInformation: BigTextStyleInformation(''),
     );
     const iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      sound: 'bible_verse_alert.mp3',
     );
     const details = NotificationDetails(
       android: androidDetails,
@@ -223,7 +235,7 @@ class NotificationService {
 
     await _plugin.show(
       _generalId,
-      'Verse of the Day (Test)',
+      '$_notificationTitle (Test)',
       '"${verse['text']}"\n\n- ${verse['ref']}',
       details,
     );
@@ -243,6 +255,7 @@ class NotificationService {
       icon: '@mipmap/ic_launcher',
       color: Color(0xFF1A237E),
       playSound: true,
+      sound: RawResourceAndroidNotificationSound('bible_verse_alert'),
       enableVibration: true,
       styleInformation: BigTextStyleInformation(''),
     );
@@ -250,6 +263,7 @@ class NotificationService {
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      sound: 'bible_verse_alert.mp3',
     );
     const details = NotificationDetails(
       android: androidDetails,
@@ -307,7 +321,7 @@ class NotificationService {
   }
 
   static Future<bool> areNotificationsEnabled() async {
-    final android = _plugin.resolvePlatformSpecificImplementation<
+    final android = _plugin.resolvePlatformSpecificImplementation
         AndroidFlutterLocalNotificationsPlugin>();
     final enabled = await android?.areNotificationsEnabled();
     return enabled ?? false;

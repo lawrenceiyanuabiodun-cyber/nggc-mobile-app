@@ -330,9 +330,26 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
           // Layer 3: Main content
           Column(
             children: [
+              // TOP: "Bible Verse of the Day" caption
+              Padding(
+                padding: const EdgeInsets.only(top: 28),
+                child: Text(
+                  'BIBLE VERSE OF THE DAY',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: const Color(0xFFFFD700).withOpacity(0.95),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 3.5,
+                    shadows: const [
+                      Shadow(color: Colors.black, blurRadius: 8, offset: Offset(0, 2)),
+                    ],
+                  ),
+                ),
+              ),
               // TOP: Date pill
               Padding(
-                padding: const EdgeInsets.only(top: 40),
+                padding: const EdgeInsets.only(top: 14),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 28,
