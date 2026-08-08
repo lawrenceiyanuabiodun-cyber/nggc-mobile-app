@@ -56,6 +56,27 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     'bible_bg11.jpg': 0.35,  // Open Bible dark - already dark
   };
 
+  static const List<String> _backgroundFiles = [
+    'bible_bg1.jpg',
+    'bible_bg2.jpg',
+    'bible_bg3.jpg',
+    'bible_bg4.jpg',
+    'bible_bg5.jpg',
+    'bible_bg6.jpg',
+    'bible_bg7.jpg',
+    'bible_bg8.jpg',
+    'bible_bg9.jpg',
+    'bible_bg10.jpg',
+    'bible_bg11.jpg',
+  ];
+
+  String _backgroundFileForToday() {
+    final now = DateTime.now();
+    final startOfYear = DateTime(now.year, 1, 1);
+    final dayOfYear = now.difference(startOfYear).inDays + 1;
+    return _backgroundFiles[dayOfYear % _backgroundFiles.length];
+  }
+
   @override
   void initState() {
     super.initState();
@@ -204,6 +225,16 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     setState(() => _sharingFlyer = true);
 
     try {
+      // Fully preload today's background image before capturing.
+      // Progressive JPEGs can decode in multiple passes; without this,
+      // captureFromWidget can fire before the image finishes decoding,
+      // producing a blurry/blocky partial render.
+      final bgFile = _backgroundFileForToday();
+      await precacheImage(
+        AssetImage('assets/images/bible_bg/$bgFile'),
+        context,
+      );
+
       final Uint8List imageBytes = await _screenshotController.captureFromWidget(
         MediaQuery(
           data: const MediaQueryData(
@@ -263,22 +294,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     final ref = _dailyVerseRef?.trim() ?? '';
     final now = DateTime.now();
 
-    final backgrounds = [
-      'bible_bg1.jpg',
-      'bible_bg2.jpg',
-      'bible_bg3.jpg',
-      'bible_bg4.jpg',
-      'bible_bg5.jpg',
-      'bible_bg6.jpg',
-      'bible_bg7.jpg',
-      'bible_bg8.jpg',
-      'bible_bg9.jpg',
-      'bible_bg10.jpg',
-      'bible_bg11.jpg',
-    ];
-    final startOfYear = DateTime(now.year, 1, 1);
-    final dayOfYear = now.difference(startOfYear).inDays + 1;
-    final bgFile = backgrounds[dayOfYear % backgrounds.length];
+    final bgFile = _backgroundFileForToday();
     final bgImagePath = 'assets/images/bible_bg/$bgFile';
     final baseOpacity = _imageOverlayOpacity[bgFile] ?? 0.55;
 
