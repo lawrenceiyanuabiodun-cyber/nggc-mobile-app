@@ -1,4 +1,5 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,10 +23,13 @@ import 'theme/app_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+  // Portrait lock - mobile only (web ignores this gracefully)
+  if (!kIsWeb) {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+  }
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -34,23 +38,36 @@ void main() async {
     ),
   );
 
-  // Register background FCM handler BEFORE Firebase.initializeApp()
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  // Background FCM handler - mobile only (web has no background process)
+  if (!kIsWeb) {
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  }
 
-  final appDocDir = await getApplicationDocumentsDirectory();
-  await Hive.initFlutter(appDocDir.path);
+  // Hive init - path_provider only needed on mobile
+  // On web, Hive uses IndexedDB automatically (no path needed)
+  if (kIsWeb) {
+    await Hive.initFlutter();
+  } else {
+    final appDocDir = await getApplicationDocumentsDirectory();
+    await Hive.initFlutter(appDocDir.path);
+  }
+
   await Hive.openBox(AppConfig.settingsBoxName);
   await Hive.openBox(AppConfig.verseBoxName);
   await Hive.openBox(AppConfig.progressBoxName);
   await Hive.openBox(AppConfig.notesBoxName);
   await Hive.openBox(AppConfig.favoritesBoxName);
 
-  await NotificationService.initialize();
+  // Notifications - mobile only (no local notifications on web)
+  if (!kIsWeb) {
+    await NotificationService.initialize();
+  }
+
   await DailyVerseService.ensureInitialized();
 
-  // Initialize Firebase + FCM (non-blocking — don't crash app if fails)
+  // Firebase + FCM - works on both mobile and web
   FcmService.initialize().catchError((e) {
-    debugPrint('FCM init failed but app will continue: $e');
+    debugPrint("FCM init failed but app will continue: ");
   });
 
   runApp(
@@ -87,7 +104,7 @@ class _AppRouterState extends ConsumerState<AppRouter> {
   bool _splashDone = false;
   bool _onboardingComplete = false;
   bool _batteryPromptShown = false;
-  String _statusText = 'Loading...';
+  String _statusText = "Loading...";
 
   @override
   void initState() {
@@ -96,15 +113,15 @@ class _AppRouterState extends ConsumerState<AppRouter> {
   }
 
   Future<void> _initializeApp() async {
-    setState(() => _statusText = 'Preparing Bible...');
+    setState(() => _statusText = "Preparing Bible...");
     await BibleLoaderService.ensureBiblesLoaded();
 
-    setState(() => _statusText = 'Preparing manuals...');
+    setState(() => _statusText = "Preparing manuals...");
     await ManualsLoaderService.ensureManualsLoaded();
 
-    setState(() => _statusText = 'Syncing daily verses...');
+    setState(() => _statusText = "Syncing daily verses...");
     DailyVerseService.syncIfNeeded().then((success) {
-      if (success) {
+      if (success && !kIsWeb) {
         NotificationService.scheduleDailyVerseNotifications();
       }
     });
@@ -115,18 +132,19 @@ class _AppRouterState extends ConsumerState<AppRouter> {
 
     if (!mounted) return;
     setState(() {
-      _statusText = 'Ready';
+      _statusText = "Ready";
       _onboardingComplete = onboardingDone;
       _splashDone = true;
     });
   }
 
-  /// Show battery optimization prompt after successful login
+  // Show battery optimization prompt after successful login
+  // Mobile only - web has no battery optimization concept
   Future<void> _maybeShowBatteryPrompt() async {
+    if (kIsWeb) return;
     if (_batteryPromptShown) return;
     _batteryPromptShown = true;
 
-    // Delay a bit so home screen renders first
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
 
@@ -150,11 +168,10 @@ class _AppRouterState extends ConsumerState<AppRouter> {
     final authState = ref.watch(authProvider);
 
     if (authState.isUnknown) {
-      return const _SplashBody(statusText: 'Checking session...');
+      return const _SplashBody(statusText: "Checking session...");
     }
 
     if (authState.isAuthenticated) {
-      // Trigger battery prompt when user is authenticated (once)
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _maybeShowBatteryPrompt();
       });
@@ -182,7 +199,7 @@ class _SplashBody extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Image.asset(
-                    'assets/images/nggc-logo.png',
+                    "assets/images/nggc-logo.png",
                     width: 120,
                     height: 120,
                     errorBuilder: (context, error, stackTrace) {
@@ -203,7 +220,7 @@ class _SplashBody extends StatelessWidget {
                   ),
                   const SizedBox(height: 32),
                   const Text(
-                    'NGGC',
+                    "NGGC",
                     style: TextStyle(
                       fontSize: 48,
                       fontWeight: FontWeight.bold,
@@ -213,7 +230,7 @@ class _SplashBody extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'New Generation Gospel Church',
+                    "New Generation Gospel Church",
                     style: TextStyle(
                       fontSize: 13,
                       color: Colors.white70,
@@ -223,7 +240,7 @@ class _SplashBody extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Sunday School',
+                    "Sunday School",
                     style: TextStyle(
                       fontSize: 15,
                       color: Color(0xFFFFD700),
@@ -287,7 +304,7 @@ class LiaConceptBadge extends StatelessWidget {
             ],
           ).createShader(bounds),
           child: const Text(
-            'L.I.A CONCEPT',
+            "L.I.A CONCEPT",
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,

@@ -1,12 +1,18 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:auto_size_text/auto_size_text.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
+
+// Conditional imports: dart:io and path_provider only on mobile,
+// web_download_helper only on web.
+import 'stub_io.dart' if (dart.library.io) 'io_helper.dart';
+import 'stub_web_download.dart'
+    if (dart.library.html) '../../services/web_download_helper.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
@@ -250,17 +256,46 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
         context: context,
       );
 
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/nggc_daily_verse_flyer.png');
-      await file.writeAsBytes(imageBytes, flush: true);
+      final shareText = _dailyVerseRef != null && _dailyVerseRef!.trim().isNotEmpty
+          ? 'Verse of the Day - ${_dailyVerseRef!}'
+          : 'Verse of the Day from NGGC Sunday School App';
 
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text: _dailyVerseRef != null && _dailyVerseRef!.trim().isNotEmpty
-            ? 'Verse of the Day - ${_dailyVerseRef!}'
-            : 'Verse of the Day from NGGC Sunday School App',
-        subject: 'Verse of the Day',
-      );
+      if (kIsWeb) {
+        // WEB: Download PNG + copy verse text to clipboard
+        downloadBytesAsFile(
+          imageBytes,
+          'nggc_daily_verse_flyer.png',
+          'image/png',
+        );
+
+        final clipText = _dailyVerseRef != null && _dailyVerseRef!.trim().isNotEmpty
+            ? '"${_dailyVerse!}"\n- ${_dailyVerseRef!}\n\nFrom NGGC Sunday School App'
+            : '"${_dailyVerse!}"\n\nFrom NGGC Sunday School App';
+
+        await Clipboard.setData(ClipboardData(text: clipText));
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Flyer downloaded! Verse copied to clipboard. Share anywhere!',
+            ),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      } else {
+        // MOBILE: Save to temp dir and share file (original behavior)
+        final file = await saveBytesToTempFile(
+          imageBytes,
+          'nggc_daily_verse_flyer.png',
+        );
+        await Share.shareXFiles(
+          [XFile(file.path)],
+          text: shareText,
+          subject: 'Verse of the Day',
+        );
+      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
