@@ -1,11 +1,11 @@
 {
-    "name": "mobile_app",
-    "short_name": "mobile_app",
+    "name": "NGGC Sunday School",
+    "short_name": "NGGC",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#1A237E",
+    "theme_color": "#1A237E",
+    "description": "NGGC Sunday School - Bible, manuals, lessons, and daily verses for New Generation Gospel Church members.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

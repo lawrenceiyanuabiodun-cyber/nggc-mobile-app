@@ -1,0 +1,25 @@
+# Netlify build configuration for NGGC Sunday School Flutter Web App
+
+[build]
+  # Directory that contains the built site
+  publish = "build/web"
+
+  # Command to install Flutter and build the web app
+  command = "bash build.sh"
+
+[build.environment]
+  FLUTTER_VERSION = "3.24.5"
+
+# SPA routing: all paths should serve index.html (Flutter handles routing)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Cache headers for Flutter web assets
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
