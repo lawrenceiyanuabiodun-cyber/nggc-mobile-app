@@ -1,3 +1,4 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +15,7 @@ import 'services/battery_optimization_service.dart';
 import 'services/bible_loader_service.dart';
 import 'services/manuals_loader_service.dart';
 import 'services/daily_verse_service.dart';
+import 'services/fcm_service.dart';
 import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 
@@ -32,6 +34,9 @@ void main() async {
     ),
   );
 
+  // Register background FCM handler BEFORE Firebase.initializeApp()
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
   final appDocDir = await getApplicationDocumentsDirectory();
   await Hive.initFlutter(appDocDir.path);
   await Hive.openBox(AppConfig.settingsBoxName);
@@ -39,8 +44,14 @@ void main() async {
   await Hive.openBox(AppConfig.progressBoxName);
   await Hive.openBox(AppConfig.notesBoxName);
   await Hive.openBox(AppConfig.favoritesBoxName);
+
   await NotificationService.initialize();
   await DailyVerseService.ensureInitialized();
+
+  // Initialize Firebase + FCM (non-blocking — don't crash app if fails)
+  FcmService.initialize().catchError((e) {
+    debugPrint('FCM init failed but app will continue: $e');
+  });
 
   runApp(
     const ProviderScope(

@@ -1,7 +1,9 @@
-﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/user_model.dart';
+import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/fcm_service.dart';
 
 // ─────────────────────────────────────────────────────────
 // Auth State
@@ -100,11 +102,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = state.copyWithUser(user);
         // Silently refresh from API in background
         _silentRefresh();
+        // Register FCM token in background (in case not registered yet)
+        _registerFcmTokenSilently();
       } else {
         // No local user — try fetching from API
         user = await AuthService.refreshCurrentUser();
         if (user != null) {
           state = state.copyWithUser(user);
+          _registerFcmTokenSilently();
         } else {
           state = state.copyWithLoggedOut();
         }
@@ -126,6 +131,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  // ── Register FCM token silently (background, non-blocking) ──
+  Future<void> _registerFcmTokenSilently({bool forceReRegister = false}) async {
+    try {
+      final jwt = await ApiService.getToken();
+      if (jwt == null || jwt.isEmpty) return;
+
+      // Small delay to let FCM service finish initializing
+      await Future.delayed(const Duration(seconds: 2));
+
+      await FcmService.registerTokenWithBackend(
+        jwt: jwt,
+        forceReRegister: forceReRegister,
+      );
+    } catch (_) {
+      // Silent fail — user experience is not affected
+    }
+  }
+
   // ── Login ──────────────────────────────────────────────
   Future<bool> login({
     required String firstName,
@@ -142,6 +165,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     if (result.success && result.user != null) {
       state = state.copyWithUser(result.user!);
+      // Register FCM token with backend (fire-and-forget)
+      _registerFcmTokenSilently(forceReRegister: true);
       return true;
     } else {
       state = state.copyWithError(result.error ?? 'Login failed');
@@ -167,6 +192,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     if (result.success && result.user != null) {
       state = state.copyWithUser(result.user!);
+      // Register FCM token with backend (fire-and-forget)
+      _registerFcmTokenSilently(forceReRegister: true);
       return true;
     } else {
       state = state.copyWithError(result.error ?? 'Registration failed');
@@ -177,6 +204,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
   // ── Logout ─────────────────────────────────────────────
   Future<void> logout() async {
     state = state.copyWithLoading();
+    // Reset FCM registration so next login re-registers
+    await FcmService.resetRegistration();
     await AuthService.logout();
     state = state.copyWithLoggedOut();
   }

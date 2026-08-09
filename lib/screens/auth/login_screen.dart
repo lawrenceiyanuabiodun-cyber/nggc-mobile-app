@@ -1,9 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
+import '../support/support_screen.dart';
 
 // ─────────────────────────────────────────────────────────
 // LoginScreen
@@ -358,7 +359,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 LengthLimitingTextInputFormatter(4),
               ],
               decoration: _inputDecoration(
-                hint: '••••',
+                hint: 'aaaa',
                 icon: Icons.lock_outline,
                 suffix: IconButton(
                   icon: Icon(
@@ -409,9 +410,78 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   textAlign: TextAlign.center,
                 ),
               ),
+
+            // ── Support Section (Divider + Button) ─────
+            const SizedBox(height: 16),
+            _buildSupportSection(isLoading),
           ],
         ),
       ),
+    );
+  }
+
+  // ── Support Section ────────────────────────────────────
+  Widget _buildSupportSection(bool isLoading) {
+    return Column(
+      children: [
+        // Divider
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 1,
+                color: AppTheme.dividerColor.withOpacity(0.6),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                'OR',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.textHint,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Container(
+                height: 1,
+                color: AppTheme.dividerColor.withOpacity(0.6),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        // Support Button
+        OutlinedButton.icon(
+          onPressed: isLoading ? null : () => showSupportSheet(context),
+          icon: const Icon(
+            Icons.support_agent,
+            size: 20,
+            color: AppTheme.primaryBlue,
+          ),
+          label: const Text(
+            'Need Help? Contact Support',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.primaryBlue,
+            ),
+          ),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 48),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            side: BorderSide(
+              color: AppTheme.primaryBlue.withOpacity(0.4),
+              width: 1.5,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -578,5 +648,3 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     );
   }
 }
-
-

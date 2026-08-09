@@ -18,6 +18,7 @@ import '../bible/bible_language_screen.dart';
 import '../events/events_screen.dart';
 import '../lessons/lesson_detail_screen.dart';
 import '../manuals/manuals_screen.dart';
+import '../support/support_screen.dart';
 
 class HomeTabScreen extends ConsumerStatefulWidget {
   const HomeTabScreen({super.key});
@@ -40,20 +41,18 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
   bool _lessonLoading = true;
 
   // Per-image gradient opacity tuning
-  // Higher opacity = darker overlay (needed for bright images)
-  // Lower opacity = lighter overlay (needed for already-dark images)
   static const Map<String, double> _imageOverlayOpacity = {
-    'bible_bg1.jpg': 0.55,   // Holy Scriptures book - medium
-    'bible_bg2.jpg': 0.65,   // Bible with pen - bright
-    'bible_bg3.jpg': 0.60,   // Bible with fairy lights - warm/bright
-    'bible_bg4.jpg': 0.55,   // Bible close-up - medium
-    'bible_bg5.jpg': 0.35,   // Bible on dark bg - already dark
-    'bible_bg6.jpg': 0.55,   // Hands holding Bible - medium
-    'bible_bg7.jpg': 0.50,   // Person praying - medium
-    'bible_bg8.jpg': 0.65,   // Open Bible pink pages - bright
-    'bible_bg9.jpg': 0.55,   // Open Bible - medium
-    'bible_bg10.jpg': 0.60,  // Bible on cloth - medium-bright
-    'bible_bg11.jpg': 0.35,  // Open Bible dark - already dark
+    'bible_bg1.jpg': 0.55,
+    'bible_bg2.jpg': 0.65,
+    'bible_bg3.jpg': 0.60,
+    'bible_bg4.jpg': 0.55,
+    'bible_bg5.jpg': 0.35,
+    'bible_bg6.jpg': 0.55,
+    'bible_bg7.jpg': 0.50,
+    'bible_bg8.jpg': 0.65,
+    'bible_bg9.jpg': 0.55,
+    'bible_bg10.jpg': 0.60,
+    'bible_bg11.jpg': 0.35,
   };
 
   static const List<String> _backgroundFiles = [
@@ -225,10 +224,6 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     setState(() => _sharingFlyer = true);
 
     try {
-      // Fully preload today's background image before capturing.
-      // Progressive JPEGs can decode in multiple passes; without this,
-      // captureFromWidget can fire before the image finishes decoding,
-      // producing a blurry/blocky partial render.
       final bgFile = _backgroundFileForToday();
       await precacheImage(
         AssetImage('assets/images/bible_bg/$bgFile'),
@@ -304,7 +299,6 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Layer 1: Bible background image
           Image.asset(
             bgImagePath,
             fit: BoxFit.cover,
@@ -312,7 +306,6 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
               color: const Color(0xFF0D1B5E),
             ),
           ),
-          // Layer 2: Gradient overlay - opacity tuned per image
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -327,10 +320,8 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
               ),
             ),
           ),
-          // Layer 3: Main content
           Column(
             children: [
-              // TOP: "Bible Verse of the Day" caption
               Padding(
                 padding: const EdgeInsets.only(top: 28),
                 child: Text(
@@ -347,7 +338,6 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                   ),
                 ),
               ),
-              // TOP: Date pill
               Padding(
                 padding: const EdgeInsets.only(top: 14),
                 child: Container(
@@ -374,7 +364,6 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                   ),
                 ),
               ),
-              // MIDDLE: verse (AutoSizeText) + reference
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(70, 25, 70, 20),
@@ -444,7 +433,6 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                   ),
                 ),
               ),
-              // Lower Third strip
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
@@ -771,6 +759,11 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
         ],
       ),
       actions: [
+        IconButton(
+          icon: const Icon(Icons.support_agent, color: Colors.white, size: 24),
+          tooltip: 'Contact Support',
+          onPressed: () => showSupportSheet(context),
+        ),
         IconButton(
           icon: const Icon(Icons.logout, color: Colors.white70, size: 22),
           tooltip: 'Sign Out',
