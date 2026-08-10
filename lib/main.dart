@@ -238,16 +238,6 @@ class _SplashBody extends StatelessWidget {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    "Sunday School",
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Color(0xFFFFD700),
-                      fontStyle: FontStyle.italic,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
                   const SizedBox(height: 60),
                   const SizedBox(
                     width: 28,

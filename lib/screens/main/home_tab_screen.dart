@@ -525,7 +525,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                           ),
                           SizedBox(height: 4),
                           Text(
-                            'nggcwebsite.netlify.app',
+                            'nggcwebsite.vercel.app',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 14,

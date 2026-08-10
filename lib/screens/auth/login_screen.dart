@@ -193,18 +193,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             ),
           ),
 
-          const SizedBox(height: 6),
-
-          // Tagline
-          const Text(
-            'Sunday School',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppTheme.accentGold,
-              fontStyle: FontStyle.italic,
-              letterSpacing: 2,
-            ),
-          ),
         ],
       ),
     );
