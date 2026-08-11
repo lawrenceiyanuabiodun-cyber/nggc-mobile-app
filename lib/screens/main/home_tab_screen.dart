@@ -39,6 +39,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
   bool _verseLoading = true;
   bool _verseError = false;
   bool _sharingFlyer = false;
+  bool _refreshingVerse = false;
 
   final ScreenshotController _screenshotController = ScreenshotController();
 
@@ -221,6 +222,60 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       _verseLoading = false;
       _verseError = false;
     });
+  }
+
+  Future<void> _forceRefreshVerse() async {
+    if (_refreshingVerse) return;
+    setState(() => _refreshingVerse = true);
+
+    try {
+      final response = await ApiService.get('/verses/daily');
+      if (!mounted) return;
+
+      if (response.isSuccess && response.asMap != null) {
+        final data = response.asMap!;
+        final text =
+            (data['text'] ?? data['verse_text'])?.toString().trim() ?? '';
+        final ref = _extractDailyVerseReference(data);
+
+        if (text.isNotEmpty) {
+          setState(() {
+            _dailyVerse = text;
+            _dailyVerseRef = ref;
+            _verseError = false;
+          });
+          DailyVerseService.syncIfNeeded(force: true);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Verse refreshed!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+          return;
+        }
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not refresh verse. Check your connection.'),
+          backgroundColor: AppTheme.errorRed,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not refresh verse. Check your connection.'),
+          backgroundColor: AppTheme.errorRed,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _refreshingVerse = false);
+      }
+    }
   }
 
   Future<void> _shareAsFlyer() async {
@@ -845,13 +900,27 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
           const SizedBox(height: 4),
           Row(
             children: [
-              const Text(
-                'Welcome to Sunday School',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.accentGold,
-                  letterSpacing: 0.5,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'WELCOME TO NGGC',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.accentGold,
+                      letterSpacing: 1.2,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Text(
+                    'SEARCH THE SCRIPTURE',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.accentGold,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                ],
               ),
               if (isAdmin) ...[
                 const SizedBox(width: 8),
@@ -947,6 +1016,32 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                           ),
                         ),
                         const Spacer(),
+                        _refreshingVerse
+                            ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  color: AppTheme.accentGold,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : InkWell(
+                                onTap: _forceRefreshVerse,
+                                borderRadius: BorderRadius.circular(20),
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.accentGold.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Icon(
+                                    Icons.refresh,
+                                    color: AppTheme.accentGold,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                        const SizedBox(width: 8),
                         _sharingFlyer
                             ? const SizedBox(
                                 width: 24,
