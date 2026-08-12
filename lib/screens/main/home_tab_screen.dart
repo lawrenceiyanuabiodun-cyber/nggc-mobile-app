@@ -17,6 +17,7 @@ import 'stub_web_download.dart'
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/daily_verse_service.dart';
+import '../../services/bible_loader_service.dart';
 import '../../services/manuals_loader_service.dart';
 import '../../theme/app_theme.dart';
 import '../announcements/announcements_screen.dart';
@@ -75,6 +76,78 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     'bible_bg10.jpg',
     'bible_bg11.jpg',
   ];
+
+  static const Map<String, String> _englishToYorubaBookNames = {
+    'Genesis': 'Gẹ́nẹ́sísì',
+    'Exodus': 'Ékísódù',
+    'Leviticus': 'Léfítíkù',
+    'Numbers': 'Numeri',
+    'Deuteronomy': 'Deuteronomi',
+    'Joshua': 'Josua',
+    'Judges': 'Awọn Onidajọ',
+    'Ruth': 'Ruutu',
+    '1 Samuel': 'Samueli (Kinni)',
+    '2 Samuel': 'Samueli (Keji)',
+    '1 Kings': 'Awon Ọba (Kinni)',
+    '2 Kings': 'Awon Ọba (Keji)',
+    '1 Chronicles': 'Kronika (Kinni)',
+    '2 Chronicles': 'Kronika (Keji)',
+    'Ezra': 'Esra',
+    'Nehemiah': 'Nehemiah',
+    'Esther': 'Esteri',
+    'Job': 'Jobu',
+    'Psalm': 'Psalmu',
+    'Psalms': 'Psalmu',
+    'Proverbs': 'Òwe',
+    'Ecclesiastes': 'Oniwasu',
+    'Song of Solomon': 'Orin Solomọni',
+    'Song of Songs': 'Orin Solomọni',
+    'Isaiah': 'Isaiah',
+    'Jeremiah': 'Jeremiah',
+    'Lamentations': 'Ẹkún Jeremiah',
+    'Ezekiel': 'Esekieli',
+    'Daniel': 'Danieli',
+    'Hosea': 'Hosea',
+    'Joel': 'Joeli',
+    'Amos': 'Amọsi',
+    'Obadiah': 'Obadiah',
+    'Jonah': 'Jonà',
+    'Micah': 'Mika',
+    'Nahum': 'Nahumu',
+    'Habakkuk': 'Habakkuku',
+    'Zephaniah': 'Sefaniah',
+    'Haggai': 'Haggai',
+    'Zechariah': 'Sekariah',
+    'Malachi': 'Malaki',
+    'Matthew': 'Matteu',
+    'Mark': 'Marku',
+    'Luke': 'Luku',
+    'John': 'Johanu',
+    'Acts': 'Ise Awọn Aposteli',
+    'Acts of the Apostles': 'Ise Awọn Aposteli',
+    'Romans': 'Awọn Ará Romu',
+    '1 Corinthians': 'Awọn Ará Korinti (Kinni)',
+    '2 Corinthians': 'Awọn Ará Korinti (Keji)',
+    'Galatians': 'Awọn Ará Galatia',
+    'Ephesians': 'Awọn Ará Efesu',
+    'Philippians': 'Awọn Ará Filippi',
+    'Colossians': 'Awọn Ará Kolosse',
+    '1 Thessalonians': 'Awọn Ará Tessalonika (Kinni)',
+    '2 Thessalonians': 'Awọn Ará Tessalonika (Keji)',
+    '1 Timothy': 'Timoteu (Kinni)',
+    '2 Timothy': 'Timoteu (Keji)',
+    'Titus': 'Titu',
+    'Philemon': 'Filimọni',
+    'Hebrews': 'Awọn Heberu',
+    'James': 'Jákọ́bù',
+    '1 Peter': 'Peteru (Kinni)',
+    '2 Peter': 'Peteru (Keji)',
+    '1 John': 'Johanu (Kinni)',
+    '2 John': 'Johanu (Keji)',
+    '3 John': 'Johanu (Kẹta)',
+    'Jude': 'Juda',
+    'Revelation': 'Ifihan',
+  };
 
   String _backgroundFileForToday() {
     final now = DateTime.now();
@@ -278,13 +351,196 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     }
   }
 
+  Map<String, String?> _parseReferenceParts(String reference) {
+    final trimmed = reference.trim();
+    if (trimmed.isEmpty) {
+      return {
+        'book': null,
+        'chapter': null,
+        'verse': null,
+      };
+    }
+
+    final match = RegExp(r'^(.+?)\s+(\d+)(?::(\d+))?$').firstMatch(trimmed);
+    if (match == null) {
+      return {
+        'book': trimmed,
+        'chapter': null,
+        'verse': null,
+      };
+    }
+
+    return {
+      'book': match.group(1)?.trim(),
+      'chapter': match.group(2)?.trim(),
+      'verse': match.group(3)?.trim(),
+    };
+  }
+
+  Future<String?> _showShareLanguagePicker() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Share Daily Verse',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : AppTheme.primaryBlue,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: CircleAvatar(
+                backgroundColor: AppTheme.primaryBlue.withOpacity(0.12),
+                child: const Text(
+                  'EN',
+                  style: TextStyle(
+                    color: AppTheme.primaryBlue,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              title: Text(
+                'English',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : AppTheme.textPrimary,
+                ),
+              ),
+              subtitle: Text(
+                'Share verse in English',
+                style: TextStyle(
+                  color: isDark ? Colors.white60 : AppTheme.textSecondary,
+                ),
+              ),
+              onTap: () => Navigator.pop(ctx, 'english'),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: CircleAvatar(
+                backgroundColor: AppTheme.accentGold.withOpacity(0.15),
+                child: const Text(
+                  'YO',
+                  style: TextStyle(
+                    color: AppTheme.accentGoldDark,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              title: Text(
+                'Yoruba',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : AppTheme.textPrimary,
+                ),
+              ),
+              subtitle: Text(
+                'Share verse in Yoruba',
+                style: TextStyle(
+                  color: isDark ? Colors.white60 : AppTheme.textSecondary,
+                ),
+              ),
+              onTap: () => Navigator.pop(ctx, 'yoruba'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<_ShareVersePayload?> _buildShareVersePayload(String language) async {
+    final englishText = _dailyVerse?.trim() ?? '';
+    final englishRef = _dailyVerseRef?.trim() ?? '';
+
+    if (englishText.isEmpty) return null;
+
+    _ShareVersePayload fallbackEnglish([String? notice]) {
+      return _ShareVersePayload(
+        verseText: englishText,
+        referenceText: englishRef,
+        shareLabel: 'Verse of the Day',
+        flyerTitle: 'BIBLE VERSE OF THE DAY',
+        notice: notice,
+      );
+    }
+
+    if (language != 'yoruba') {
+      return fallbackEnglish();
+    }
+
+    final parts = _parseReferenceParts(englishRef);
+    final englishBook = parts['book']?.trim() ?? '';
+    final chapter = parts['chapter']?.trim() ?? '';
+    final verse = parts['verse']?.trim() ?? '';
+
+    if (englishBook.isEmpty || chapter.isEmpty || verse.isEmpty) {
+      return fallbackEnglish(
+        'Yoruba translation unavailable for this verse. Shared English version instead.',
+      );
+    }
+
+    final yorubaBook = _englishToYorubaBookNames[englishBook];
+    if (yorubaBook == null || yorubaBook.trim().isEmpty) {
+      return fallbackEnglish(
+        'Yoruba translation unavailable for this verse. Shared English version instead.',
+      );
+    }
+
+    final loaded = await BibleLoaderService.ensureBiblesLoaded();
+    if (!loaded) {
+      return fallbackEnglish(
+        'Could not load Yoruba Bible right now. Shared English version instead.',
+      );
+    }
+
+    final yorubaText =
+        BibleLoaderService.getVerse('yoruba', yorubaBook, chapter, verse)
+            ?.trim() ??
+        '';
+
+    if (yorubaText.isEmpty) {
+      return fallbackEnglish(
+        'Yoruba translation unavailable for this verse. Shared English version instead.',
+      );
+    }
+
+    return _ShareVersePayload(
+      verseText: yorubaText,
+      referenceText: '$yorubaBook $chapter:$verse',
+      shareLabel: 'Ẹsẹ Bibeli ti Ọjọ́',
+      flyerTitle: 'ẸSẸ BIBELI TI ỌJỌ́',
+    );
+  }
+
   Future<void> _shareAsFlyer() async {
     if (_dailyVerse == null || _dailyVerse!.trim().isEmpty) return;
     if (_sharingFlyer) return;
 
+    final selectedLanguage = await _showShareLanguagePicker();
+    if (!mounted || selectedLanguage == null) return;
+
     setState(() => _sharingFlyer = true);
 
     try {
+      final payload = await _buildShareVersePayload(selectedLanguage);
+      if (payload == null) {
+        throw Exception('No verse available to share.');
+      }
+
       final bgFile = _backgroundFileForToday();
       await precacheImage(
         AssetImage('assets/images/bible_bg/$bgFile'),
@@ -301,7 +557,11 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
             textDirection: TextDirection.ltr,
             child: Material(
               color: Colors.transparent,
-              child: _buildFlyerWidget(),
+              child: _buildFlyerWidget(
+                verse: payload.verseText,
+                ref: payload.referenceText,
+                headerTitle: payload.flyerTitle,
+              ),
             ),
           ),
         ),
@@ -311,45 +571,57 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
         context: context,
       );
 
-      final shareText = _dailyVerseRef != null && _dailyVerseRef!.trim().isNotEmpty
-          ? 'Verse of the Day - ${_dailyVerseRef!}'
-          : 'Verse of the Day from NGGC Sunday School App';
+      final shareText = payload.referenceText.trim().isNotEmpty
+          ? '${payload.shareLabel} - ${payload.referenceText}'
+          : '${payload.shareLabel} from NGGC Sunday School App';
 
       if (kIsWeb) {
-        // WEB: Download PNG + copy verse text to clipboard
         downloadBytesAsFile(
           imageBytes,
           'nggc_daily_verse_flyer.png',
           'image/png',
         );
 
-        final clipText = _dailyVerseRef != null && _dailyVerseRef!.trim().isNotEmpty
-            ? '"${_dailyVerse!}"\n- ${_dailyVerseRef!}\n\nFrom NGGC Sunday School App'
-            : '"${_dailyVerse!}"\n\nFrom NGGC Sunday School App';
+        final clipText = payload.referenceText.trim().isNotEmpty
+            ? '"${payload.verseText}"\n- ${payload.referenceText}\n\nFrom NGGC Sunday School App'
+            : '"${payload.verseText}"\n\nFrom NGGC Sunday School App';
 
         await Clipboard.setData(ClipboardData(text: clipText));
 
         if (!mounted) return;
+
+        final successMessage = payload.notice == null
+            ? 'Flyer downloaded! Verse copied to clipboard. Share anywhere!'
+            : 'Flyer downloaded! Verse copied to clipboard. ${payload.notice!}';
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Flyer downloaded! Verse copied to clipboard. Share anywhere!',
-            ),
+          SnackBar(
+            content: Text(successMessage),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 4),
+            duration: const Duration(seconds: 4),
           ),
         );
       } else {
-        // MOBILE: Save to temp dir and share file (original behavior)
         final file = await saveBytesToTempFile(
           imageBytes,
           'nggc_daily_verse_flyer.png',
         );
+
         await Share.shareXFiles(
           [XFile(file.path)],
           text: shareText,
-          subject: 'Verse of the Day',
+          subject: payload.shareLabel,
         );
+
+        if (payload.notice != null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(payload.notice!),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
       }
     } catch (_) {
       if (!mounted) return;
@@ -374,9 +646,11 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
 
-  Widget _buildFlyerWidget() {
-    final verse = _dailyVerse?.trim() ?? '';
-    final ref = _dailyVerseRef?.trim() ?? '';
+  Widget _buildFlyerWidget({
+    required String verse,
+    required String ref,
+    required String headerTitle,
+  }) {
     final now = DateTime.now();
 
     final bgFile = _backgroundFileForToday();
@@ -414,9 +688,12 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
             children: [
               Padding(
                 padding: const EdgeInsets.only(top: 28),
-                child: Text(
-                  'BIBLE VERSE OF THE DAY',
+                child: AutoSizeText(
+                  headerTitle,
                   textAlign: TextAlign.center,
+                  maxLines: 1,
+                  minFontSize: 10,
+                  maxFontSize: 16,
                   style: TextStyle(
                     color: const Color(0xFFFFD700).withOpacity(0.95),
                     fontSize: 16,
@@ -1388,6 +1665,22 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       ),
     );
   }
+}
+
+class _ShareVersePayload {
+  final String verseText;
+  final String referenceText;
+  final String shareLabel;
+  final String flyerTitle;
+  final String? notice;
+
+  const _ShareVersePayload({
+    required this.verseText,
+    required this.referenceText,
+    required this.shareLabel,
+    required this.flyerTitle,
+    this.notice,
+  });
 }
 
 class _FeatureItem {

@@ -95,3 +95,9 @@ GoogleService-Info.plist
 firebase_options.dart
 # Netlify build artifacts
 _flutter/
+
+# Session helper scripts (local only)
+update_*.py
+generate_*.py
+notifications_UPDATED.py
+*.session*_backup
