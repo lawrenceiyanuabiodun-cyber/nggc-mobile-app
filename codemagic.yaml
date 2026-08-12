@@ -22,6 +22,18 @@ workflows:
         script: |
           echo "flutter.sdk=$HOME/programs/flutter" > "$CM_BUILD_DIR/android/local.properties"
 
+      - name: Decode google-services.json from env
+        script: |
+          set -e
+          if [ -z "$GOOGLE_SERVICES_JSON_B64" ]; then
+            echo "ERROR: GOOGLE_SERVICES_JSON_B64 env var is not set!"
+            echo "Add it in Codemagic > Settings > Environment variables"
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > "$CM_BUILD_DIR/android/app/google-services.json"
+          echo "google-services.json written to android/app/"
+          ls -lh "$CM_BUILD_DIR/android/app/google-services.json"
+
       - name: Get Flutter packages
         script: |
           flutter --version
