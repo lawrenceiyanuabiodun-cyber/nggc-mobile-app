@@ -67,6 +67,17 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     'bible_bg9.jpg': 0.55,
     'bible_bg10.jpg': 0.60,
     'bible_bg11.jpg': 0.35,
+    'bible_bg12.jpg': 0.55,
+    'bible_bg13.jpg': 0.55,
+    'bible_bg14.jpg': 0.55,
+    'bible_bg15.jpg': 0.55,
+    'bible_bg16.jpg': 0.55,
+    'bible_bg17.jpg': 0.55,
+    'bible_bg18.jpg': 0.55,
+    'bible_bg19.jpg': 0.55,
+    'bible_bg20.jpg': 0.55,
+    'bible_bg21.jpg': 0.55,
+    'bible_bg22.jpg': 0.55,
   };
 
   static const List<String> _backgroundFiles = [
@@ -81,6 +92,17 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     'bible_bg9.jpg',
     'bible_bg10.jpg',
     'bible_bg11.jpg',
+    'bible_bg12.jpg',
+    'bible_bg13.jpg',
+    'bible_bg14.jpg',
+    'bible_bg15.jpg',
+    'bible_bg16.jpg',
+    'bible_bg17.jpg',
+    'bible_bg18.jpg',
+    'bible_bg19.jpg',
+    'bible_bg20.jpg',
+    'bible_bg21.jpg',
+    'bible_bg22.jpg',
   ];
 
   static const Map<String, String> _englishToYorubaBookNames = {
