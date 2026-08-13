@@ -7,10 +7,10 @@ import '../../providers/theme_provider.dart';
 import '../../services/battery_optimization_service.dart';
 import '../../services/notification_service.dart';
 import '../../theme/app_theme.dart';
+import '../bible/bible_reading_progress_screen.dart';
 import '../bible/bible_saved_verses_screen.dart';
 import '../favorites/favorites_screen.dart';
 import '../notes/notes_screen.dart';
-import '../progress/progress_screen.dart';
 import '../search/search_screen.dart';
 import 'change_pin_screen.dart';
 
@@ -207,11 +207,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 onTap: () => _navigateTo(const NotesScreen()),
               ),
               _buildNavTile(
-                icon: Icons.bar_chart_outlined,
+                icon: Icons.auto_stories_outlined,
                 label: 'Reading Progress',
-                subtitle: 'Track your study progress',
+                subtitle: 'Track your Bible reading streak',
                 color: AppTheme.successGreen,
-                onTap: () => _navigateTo(const ProgressScreen()),
+                onTap: () => _navigateTo(const BibleReadingProgressScreen()),
                 isLast: true,
               ),
             ]),

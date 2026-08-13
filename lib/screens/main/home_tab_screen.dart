@@ -19,9 +19,11 @@ import '../../services/api_service.dart';
 import '../../services/daily_verse_service.dart';
 import '../../services/bible_loader_service.dart';
 import '../../services/manuals_loader_service.dart';
+import '../../services/reading_plan_service.dart';
 import '../../theme/app_theme.dart';
 import '../announcements/announcements_screen.dart';
 import '../bible/bible_language_screen.dart';
+import '../bible/reading_plan_reader_screen.dart';
 import '../events/events_screen.dart';
 import '../lessons/lesson_detail_screen.dart';
 import '../manuals/manuals_screen.dart';
@@ -47,6 +49,10 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
   Map<String, dynamic>? _todayLesson;
   String? _todayLessonDate;
   bool _lessonLoading = true;
+
+  // Reading plan state
+  Map<String, dynamic>? _todayReading;
+  bool _readingLoading = true;
 
   // Per-image gradient opacity tuning
   static const Map<String, double> _imageOverlayOpacity = {
@@ -161,6 +167,30 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     super.initState();
     _loadDailyVerse();
     _loadTodayLesson();
+    _loadTodayReading();
+  }
+
+  Future<void> _loadTodayReading() async {
+    setState(() => _readingLoading = true);
+    final reading = await ReadingPlanService.getToday();
+    if (!mounted) return;
+    setState(() {
+      _todayReading = reading;
+      _readingLoading = false;
+    });
+  }
+
+  Future<void> _openReader() async {
+    if (_todayReading == null) return;
+    if (_todayReading!['is_rest_day'] == true) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReadingPlanReaderScreen(reading: _todayReading!),
+      ),
+    );
+    // Refresh reading state (is_read may have changed)
+    _loadTodayReading();
   }
 
   Future<void> _loadDailyVerse() async {
@@ -1075,6 +1105,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
         onRefresh: () async {
           await _loadDailyVerse();
           await _loadTodayLesson();
+          await _loadTodayReading();
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -1087,6 +1118,9 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
               _buildSectionTitle('Daily Verse'),
               _buildDailyVerseCard(),
               const SizedBox(height: 20),
+              _buildSectionTitle("Today's Reading"),
+              _buildReadingPlanCard(),
+              const SizedBox(height: 20),
               _buildSectionTitle('Quick Access'),
               _buildFeatureGrid(),
               const SizedBox(height: 20),
@@ -1095,6 +1129,245 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
               const SizedBox(height: 8),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReadingPlanCard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.accentGold.withOpacity(isDark ? 0.20 : 0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: _readingLoading
+          ? const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: AppTheme.primaryBlue,
+                  strokeWidth: 2,
+                ),
+              ),
+            )
+          : _todayReading == null
+              ? _buildReadingUnavailable(isDark)
+              : _todayReading!['is_rest_day'] == true
+                  ? _buildRestDayCard(isDark)
+                  : _buildReadingContent(isDark),
+    );
+  }
+
+  Widget _buildReadingUnavailable(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          Icon(
+            Icons.wifi_off,
+            color: isDark ? Colors.white38 : AppTheme.textHint,
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Reading plan unavailable.\nPull down to retry.',
+              style: TextStyle(
+                color: isDark ? Colors.white70 : AppTheme.textSecondary,
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.refresh,
+              color: isDark ? Colors.white70 : AppTheme.primaryBlue,
+            ),
+            onPressed: _loadTodayReading,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRestDayCard(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: AppTheme.accentGold.withOpacity(isDark ? 0.25 : 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.self_improvement,
+              color: AppTheme.accentGoldDark,
+              size: 26,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Rest Day 🌿',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'No scheduled reading today.\nTake time to reflect and pray.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.white60 : AppTheme.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReadingContent(bool isDark) {
+    final book = _todayReading!['book_english_name']?.toString() ?? '';
+    final chapter = _todayReading!['chapter']?.toString() ?? '';
+    final theme = _todayReading!['theme']?.toString() ?? '';
+    final doy = _todayReading!['day_of_year']?.toString() ?? '';
+    final isRead = _todayReading!['is_read'] == true;
+
+    return InkWell(
+      onTap: _openReader,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.auto_stories_outlined,
+                  color: AppTheme.accentGoldDark,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Day $doy of 365',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppTheme.accentGoldDark,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                const Spacer(),
+                if (isRead)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle,
+                            color: Colors.green, size: 12),
+                        SizedBox(width: 4),
+                        Text(
+                          'Read',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryBlue.withOpacity(isDark ? 0.25 : 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.menu_book,
+                    color: AppTheme.primaryBlue,
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$book $chapter',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : AppTheme.textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (theme.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          theme,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark
+                                ? Colors.white60
+                                : AppTheme.textSecondary,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  color: isDark ? Colors.white38 : AppTheme.textHint,
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
