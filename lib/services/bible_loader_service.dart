@@ -8,8 +8,11 @@ class BibleLoaderService {
 
   static const String _englishBoxName = 'bible_english';
   static const String _yorubaBoxName = 'bible_yoruba';
+  static const String _ampcBoxName = 'bible_ampc';
+  static const String _nivBoxName = 'bible_niv';
+  static const String _nltBoxName = 'bible_nlt';
 
-  static const String _loadedFlag = 'bibles_loaded_v7';
+  static const String _loadedFlag = 'bibles_loaded_v10';
   static const String _yorubaOrderKey = '_book_order';
 
   static const List<Map<String, String>> translations = [
@@ -26,6 +29,27 @@ class BibleLoaderService {
       'fullName': 'Bibeli Mimo',
       'box': 'bible_yoruba',
       'year': '',
+    },
+    {
+      'key': 'ampc',
+      'label': 'AMPC',
+      'fullName': 'Amplified Classic',
+      'box': 'bible_ampc',
+      'year': '1987',
+    },
+    {
+      'key': 'niv',
+      'label': 'NIV',
+      'fullName': 'New International Version',
+      'box': 'bible_niv',
+      'year': '2011',
+    },
+    {
+      'key': 'nlt',
+      'label': 'NLT',
+      'fullName': 'New Living Translation',
+      'box': 'bible_nlt',
+      'year': '2015',
     },
   ];
 
@@ -53,12 +77,18 @@ class BibleLoaderService {
     if (alreadyLoaded) {
       await Hive.openBox(_englishBoxName);
       await Hive.openBox(_yorubaBoxName);
+      await Hive.openBox(_ampcBoxName);
+      await Hive.openBox(_nivBoxName);
+      await Hive.openBox(_nltBoxName);
       return true;
     }
 
     try {
       await _loadEnglishBible();
       await _loadYorubaBible();
+      await _loadAmpcBible();
+      await _loadNivBible();
+      await _loadNltBible();
 
       await prefs.setBool(_loadedFlag, true);
       return true;
@@ -117,6 +147,153 @@ class BibleLoaderService {
                 verseEntry.value.toString();
           }
 
+          normalized[chapKey] = verses;
+        }
+      }
+
+      await box.put(bookName, normalized);
+    }
+  }
+
+
+  static Future<void> _loadAmpcBible() async {
+    final jsonString = await rootBundle.loadString(
+      'assets/bibles/ampc_bible.json',
+    );
+
+    final Map<String, dynamic> booksMap = json.decode(jsonString);
+
+    final box = await Hive.openBox(_ampcBoxName);
+    await box.clear();
+
+    final sortedKeys = booksMap.keys.toList()
+      ..sort((a, b) {
+        final ai = int.tryParse(a) ?? 999;
+        final bi = int.tryParse(b) ?? 999;
+        return ai.compareTo(bi);
+      });
+
+    for (final key in sortedKeys) {
+      final chaptersRaw = booksMap[key];
+      if (chaptersRaw is! Map) continue;
+
+      final bookNum = int.tryParse(key);
+      final String bookName =
+          bookNum != null &&
+                  bookNum >= 1 &&
+                  bookNum <= _englishBookNames.length
+              ? _englishBookNames[bookNum - 1]
+              : key;
+
+      final Map<String, Map<String, String>> normalized = {};
+
+      for (final chapEntry in chaptersRaw.entries) {
+        final chapKey = chapEntry.key.toString();
+        final versesRaw = chapEntry.value;
+
+        if (versesRaw is Map) {
+          final Map<String, String> verses = {};
+          for (final verseEntry in versesRaw.entries) {
+            verses[verseEntry.key.toString()] = verseEntry.value.toString();
+          }
+          normalized[chapKey] = verses;
+        }
+      }
+
+      await box.put(bookName, normalized);
+    }
+  }
+
+
+  static Future<void> _loadNivBible() async {
+    final jsonString = await rootBundle.loadString(
+      'assets/bibles/niv_bible.json',
+    );
+
+    final Map<String, dynamic> booksMap = json.decode(jsonString);
+
+    final box = await Hive.openBox(_nivBoxName);
+    await box.clear();
+
+    final sortedKeys = booksMap.keys.toList()
+      ..sort((a, b) {
+        final ai = int.tryParse(a) ?? 999;
+        final bi = int.tryParse(b) ?? 999;
+        return ai.compareTo(bi);
+      });
+
+    for (final key in sortedKeys) {
+      final chaptersRaw = booksMap[key];
+      if (chaptersRaw is! Map) continue;
+
+      final bookNum = int.tryParse(key);
+      final String bookName =
+          bookNum != null &&
+                  bookNum >= 1 &&
+                  bookNum <= _englishBookNames.length
+              ? _englishBookNames[bookNum - 1]
+              : key;
+
+      final Map<String, Map<String, String>> normalized = {};
+
+      for (final chapEntry in chaptersRaw.entries) {
+        final chapKey = chapEntry.key.toString();
+        final versesRaw = chapEntry.value;
+
+        if (versesRaw is Map) {
+          final Map<String, String> verses = {};
+          for (final verseEntry in versesRaw.entries) {
+            verses[verseEntry.key.toString()] = verseEntry.value.toString();
+          }
+          normalized[chapKey] = verses;
+        }
+      }
+
+      await box.put(bookName, normalized);
+    }
+  }
+
+
+  static Future<void> _loadNltBible() async {
+    final jsonString = await rootBundle.loadString(
+      'assets/bibles/nlt_bible.json',
+    );
+
+    final Map<String, dynamic> booksMap = json.decode(jsonString);
+
+    final box = await Hive.openBox(_nltBoxName);
+    await box.clear();
+
+    final sortedKeys = booksMap.keys.toList()
+      ..sort((a, b) {
+        final ai = int.tryParse(a) ?? 999;
+        final bi = int.tryParse(b) ?? 999;
+        return ai.compareTo(bi);
+      });
+
+    for (final key in sortedKeys) {
+      final chaptersRaw = booksMap[key];
+      if (chaptersRaw is! Map) continue;
+
+      final bookNum = int.tryParse(key);
+      final String bookName =
+          bookNum != null &&
+                  bookNum >= 1 &&
+                  bookNum <= _englishBookNames.length
+              ? _englishBookNames[bookNum - 1]
+              : key;
+
+      final Map<String, Map<String, String>> normalized = {};
+
+      for (final chapEntry in chaptersRaw.entries) {
+        final chapKey = chapEntry.key.toString();
+        final versesRaw = chapEntry.value;
+
+        if (versesRaw is Map) {
+          final Map<String, String> verses = {};
+          for (final verseEntry in versesRaw.entries) {
+            verses[verseEntry.key.toString()] = verseEntry.value.toString();
+          }
           normalized[chapKey] = verses;
         }
       }
@@ -206,6 +383,12 @@ class BibleLoaderService {
     switch (translation) {
       case 'yoruba':
         return _yorubaBoxName;
+      case 'ampc':
+        return _ampcBoxName;
+      case 'niv':
+        return _nivBoxName;
+      case 'nlt':
+        return _nltBoxName;
       default:
         return _englishBoxName;
     }

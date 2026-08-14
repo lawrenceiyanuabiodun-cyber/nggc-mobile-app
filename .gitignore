@@ -101,3 +101,24 @@ update_*.py
 generate_*.py
 notifications_UPDATED.py
 *.session*_backup
+
+# --- Session dev scripts (not for production) ---
+patch_*.py
+diagnose_*.py
+diagnose_*.txt
+show_*.py
+swap_*.py
+inspect_*.py
+check_*.py
+compress_*.py
+import_*.py
+test_*.py
+verses_*.py
+simplify_*.py
+new_func.txt
+
+# --- Local dev workspaces (not for production) ---
+bible_import/
+reading_plan/
+sermons_backend/
+diagnose*.py

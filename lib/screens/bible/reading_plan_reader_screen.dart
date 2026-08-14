@@ -57,8 +57,7 @@ class _ReadingPlanReaderScreenState
       }
 
       final verses = <_VerseRow>[];
-      // Loop from verse 1 upward until BibleLoader returns null.
-      // Cap at 200 to be safe (longest chapter is Psalm 119 with 176 verses).
+      // All three translations (english/yoruba/ampc) load from offline Hive boxes.
       for (int v = 1; v <= 200; v++) {
         final text = BibleLoaderService.getVerse(
           _language,
@@ -67,7 +66,7 @@ class _ReadingPlanReaderScreenState
           v.toString(),
         );
         if (text == null || text.trim().isEmpty) {
-          if (v == 1) continue; // some Bibles start at 0
+          if (v == 1) continue;
           break;
         }
         verses.add(_VerseRow(number: v, text: text.trim()));
@@ -87,9 +86,10 @@ class _ReadingPlanReaderScreenState
     }
   }
 
-  Future<void> _toggleLanguage() async {
+  Future<void> _setLanguage(String lang) async {
+    if (_language == lang) return;
     setState(() {
-      _language = _language == 'english' ? 'yoruba' : 'english';
+      _language = lang;
     });
     await _loadChapter();
   }
@@ -162,26 +162,26 @@ class _ReadingPlanReaderScreenState
         ),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          IconButton(
-            tooltip: _language == 'english'
-                ? 'Switch to Yoruba'
-                : 'Switch to English',
-            icon: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          Padding(
+            padding: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
+            child: Container(
               decoration: BoxDecoration(
-                color: AppTheme.accentGold.withOpacity(0.25),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                _language == 'english' ? 'EN' : 'YO',
-                style: const TextStyle(
-                  color: AppTheme.accentGold,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: AppTheme.accentGold.withOpacity(0.4),
+                  width: 1,
                 ),
               ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _langChip('EN', 'english'),
+                  _langChip('YO', 'yoruba'),
+                  _langChip('AMP', 'ampc'),
+                ],
+              ),
             ),
-            onPressed: _toggleLanguage,
           ),
         ],
       ),
@@ -410,6 +410,29 @@ class _ReadingPlanReaderScreenState
               ),
             ),
             onPressed: _isRead ? null : _markAsRead,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _langChip(String label, String value) {
+    final isActive = _language == value;
+    return GestureDetector(
+      onTap: () => _setLanguage(value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive ? AppTheme.accentGold : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isActive ? AppTheme.primaryBlue : Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 11,
+            letterSpacing: 0.5,
           ),
         ),
       ),

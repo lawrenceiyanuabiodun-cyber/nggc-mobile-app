@@ -43,6 +43,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
   bool _verseError = false;
   bool _sharingFlyer = false;
   bool _refreshingVerse = false;
+  String _dailyVerseTranslation = 'KJV'; // tracks which translation is shown
 
   final ScreenshotController _screenshotController = ScreenshotController();
 
@@ -344,6 +345,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     setState(() {
       _dailyVerse = v['text'];
       _dailyVerseRef = v['ref'];
+      _dailyVerseTranslation = 'KJV';
       _verseLoading = false;
       _verseError = false;
     });
@@ -364,9 +366,35 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
         final ref = _extractDailyVerseReference(data);
 
         if (text.isNotEmpty) {
+          // Try to look up NLT version of the same verse offline
+          String displayText = text;
+          String displayTranslation = 'KJV';
+          if (ref != null && ref.isNotEmpty) {
+            final parts = _parseReferenceParts(ref);
+            final book = parts['book']?.trim() ?? '';
+            final ch = parts['chapter']?.trim() ?? '';
+            final vs = parts['verse']?.trim() ?? '';
+            if (book.isNotEmpty && ch.isNotEmpty && vs.isNotEmpty) {
+              final biblesReady = await BibleLoaderService.ensureBiblesLoaded();
+              if (biblesReady) {
+                final nltText = BibleLoaderService.getVerse('nlt', book, ch, vs)?.trim() ?? '';
+                if (nltText.isNotEmpty) {
+                  displayText = nltText;
+                  displayTranslation = 'NLT';
+                } else {
+                  final nivText = BibleLoaderService.getVerse('niv', book, ch, vs)?.trim() ?? '';
+                  if (nivText.isNotEmpty) {
+                    displayText = nivText;
+                    displayTranslation = 'NIV';
+                  }
+                }
+              }
+            }
+          }
           setState(() {
-            _dailyVerse = text;
+            _dailyVerse = displayText;
             _dailyVerseRef = ref;
+            _dailyVerseTranslation = displayTranslation;
             _verseError = false;
           });
           DailyVerseService.syncIfNeeded(force: true);
@@ -527,10 +555,41 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
         shareLabel: 'Verse of the Day',
         flyerTitle: 'BIBLE VERSE OF THE DAY',
         notice: notice,
+        translationTag: 'KJV',
       );
     }
 
     if (language != 'yoruba') {
+      // Try NLT → NIV → KJV fallback for English share
+      final parts = _parseReferenceParts(englishRef);
+      final book = parts['book']?.trim() ?? '';
+      final ch = parts['chapter']?.trim() ?? '';
+      final vs = parts['verse']?.trim() ?? '';
+      if (book.isNotEmpty && ch.isNotEmpty && vs.isNotEmpty) {
+        final biblesReady = await BibleLoaderService.ensureBiblesLoaded();
+        if (biblesReady) {
+          final nltText = BibleLoaderService.getVerse('nlt', book, ch, vs)?.trim() ?? '';
+          if (nltText.isNotEmpty) {
+            return _ShareVersePayload(
+              verseText: nltText,
+              referenceText: englishRef,
+              shareLabel: 'Verse of the Day',
+              flyerTitle: 'BIBLE VERSE OF THE DAY',
+              translationTag: 'NLT',
+            );
+          }
+          final nivText = BibleLoaderService.getVerse('niv', book, ch, vs)?.trim() ?? '';
+          if (nivText.isNotEmpty) {
+            return _ShareVersePayload(
+              verseText: nivText,
+              referenceText: englishRef,
+              shareLabel: 'Verse of the Day',
+              flyerTitle: 'BIBLE VERSE OF THE DAY',
+              translationTag: 'NIV',
+            );
+          }
+        }
+      }
       return fallbackEnglish();
     }
 
@@ -575,6 +634,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       referenceText: '$yorubaBook $chapter:$verse',
       shareLabel: 'Ẹsẹ Bibeli ti Ọjọ́',
       flyerTitle: 'ẸSẸ BIBELI TI ỌJỌ́',
+      translationTag: 'YOR',
     );
   }
 
@@ -613,6 +673,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                 verse: payload.verseText,
                 ref: payload.referenceText,
                 headerTitle: payload.flyerTitle,
+                translationTag: payload.translationTag,
               ),
             ),
           ),
@@ -702,6 +763,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     required String verse,
     required String ref,
     required String headerTitle,
+    String translationTag = 'KJV',
   }) {
     final now = DateTime.now();
 
@@ -845,6 +907,24 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                               fontWeight: FontWeight.w900,
                               letterSpacing: 1.2,
                             ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          translationTag == 'NLT'
+                              ? 'NLT - New Living Translation'
+                              : translationTag == 'NIV'
+                                  ? 'NIV - New International Version'
+                                  : translationTag == 'YOR'
+                                      ? 'Yoruba - Bibeli Mimo'
+                                      : 'KJV - King James Version',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFFFFD700),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            fontStyle: FontStyle.italic,
+                            letterSpacing: 0.8,
                           ),
                         ),
                       ],
@@ -1665,6 +1745,23 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          _dailyVerseTranslation == 'NLT'
+                              ? 'NLT - New Living Translation'
+                              : _dailyVerseTranslation == 'NIV'
+                                  ? 'NIV - New International Version'
+                                  : 'KJV - King James Version',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: AppTheme.accentGold,
+                            fontWeight: FontWeight.w500,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
                     ],
                   ],
                 ),
@@ -1968,6 +2065,7 @@ class _ShareVersePayload {
   final String shareLabel;
   final String flyerTitle;
   final String? notice;
+  final String translationTag;
 
   const _ShareVersePayload({
     required this.verseText,
@@ -1975,6 +2073,7 @@ class _ShareVersePayload {
     required this.shareLabel,
     required this.flyerTitle,
     this.notice,
+    this.translationTag = 'KJV',
   });
 }
 

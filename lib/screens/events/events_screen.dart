@@ -62,7 +62,14 @@ class _EventsScreenState extends State<EventsScreen> {
     if (!mounted) return;
 
     if (response.isSuccess) {
-      final list = response.asList ?? [];
+      // API returns { total, count, events: [...] } — extract the array
+      List<dynamic> list = [];
+      final asMap = response.asMap;
+      if (asMap != null && asMap['events'] is List) {
+        list = asMap['events'] as List<dynamic>;
+      } else {
+        list = response.asList ?? [];
+      }
       _sortEvents(list);
       await CacheService.saveEvents(list);
       setState(() {

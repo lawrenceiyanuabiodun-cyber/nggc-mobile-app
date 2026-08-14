@@ -57,4 +57,22 @@ class ReadingPlanService {
     }
     return null;
   }
+
+  /// Fetch AMPC (Amplified Classic Bible) chapter from backend.
+  /// Returns a list of verse maps: [{verse: 1, text: "..."}, ...]
+  /// Returns null on error or if chapter not found.
+  static Future<List<Map<String, dynamic>>?> fetchAmpcChapter({
+    required int bookNumber,
+    required int chapter,
+  }) async {
+    final res = await ApiService.get('/bible/ampc/chapter/$bookNumber/$chapter');
+    if (!res.isSuccess || res.asMap == null) return null;
+    final map = res.asMap!;
+    final versesRaw = map['verses'];
+    if (versesRaw is! List) return null;
+    return versesRaw
+        .whereType<Map>()
+        .map((v) => Map<String, dynamic>.from(v))
+        .toList();
+  }
 }

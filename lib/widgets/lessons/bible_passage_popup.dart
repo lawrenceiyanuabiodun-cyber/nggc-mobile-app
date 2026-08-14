@@ -77,18 +77,38 @@ class BiblePassagePopup {
     return result;
   }
 
-  /// Parse one reference like "1 John 3:16-18"
+  /// Parse one reference like "1 John 3:16-18", "1samuel 25:1-42", "Isamuel 25"
   static _ParsedRef? _parseOne(String raw) {
+    String normalized = raw.trim();
+
+    // Normalize: insert space between leading digit and letter if missing
+    // e.g. "1samuel" -> "1 samuel", "2kings" -> "2 kings"
+    normalized = normalized.replaceAllMapped(
+      RegExp(r'^(\d)([A-Za-z])'),
+      (m) => '${m.group(1)} ${m.group(2)}',
+    );
+
+    // Normalize Roman-ish typos where user typed letter I/II/III instead of 1/2/3
+    // e.g. "Isamuel 25:1" -> "1 samuel 25:1", "II kings 4" -> "2 kings 4"
+    normalized = normalized.replaceAllMapped(
+      RegExp(r'^(III|II|I)\s*([A-Za-z])'),
+      (m) {
+        final roman = m.group(1)!;
+        final letter = m.group(2)!;
+        final num = roman == 'III' ? '3' : (roman == 'II' ? '2' : '1');
+        return '$num $letter';
+      },
+    );
+
     // Regex: (book) chapter[:verseStart[-verseEnd]]
-    // Book can start with number (1, 2, 3) then name
     final regex = RegExp(
       r'^\s*(\d?\s*[A-Za-z][A-Za-z\s]*?)\s+(\d+)(?::(\d+)(?:\s*[-–]\s*(\d+))?)?\s*$',
       caseSensitive: false,
     );
-    final m = regex.firstMatch(raw);
+    final m = regex.firstMatch(normalized);
     if (m == null) return null;
 
-    final book = m.group(1)!.trim();
+    final book = m.group(1)!.trim().replaceAll(RegExp(r'\s+'), ' ');
     final chapter = m.group(2)!;
     final vStart = m.group(3);
     final vEnd = m.group(4);
@@ -101,6 +121,7 @@ class BiblePassagePopup {
       verseEnd: vEnd,
     );
   }
+
 }
 
 // ─────────────────────────────────────────────────────────
@@ -152,7 +173,19 @@ class _PopupContentState extends State<_PopupContent> {
     _loadAll();
   }
 
-  void _loadAll() {
+  Future<void> _loadAll() async {
+    // Make sure all Bible translations are loaded into Hive first
+    final ready = await BibleLoaderService.ensureBiblesLoaded();
+    if (!mounted) return;
+    if (!ready) {
+      setState(() {
+        for (int i = 0; i < widget.references.length; i++) {
+          _errorByRef[i] = 'Bible not available offline. Please try again.';
+          _versesByRef[i] = [];
+        }
+      });
+      return;
+    }
     for (int i = 0; i < widget.references.length; i++) {
       _loadOne(i, widget.references[i]);
     }
@@ -166,7 +199,7 @@ class _PopupContentState extends State<_PopupContent> {
       final enBook = _resolveBookName(ref.book, 'english');
       if (enBook == null) {
         setState(() {
-          _errorByRef[index] = 'Book "${ref.book}" not found';
+          _errorByRef[index] = 'Book "${ref.book}" not found. Check the passage reference.';
           _versesByRef[index] = [];
         });
         return;
@@ -183,7 +216,7 @@ class _PopupContentState extends State<_PopupContent> {
     final verses = _fetchVerses(resolvedBook, ref, _currentLanguage);
     setState(() {
       _errorByRef[index] = verses.isEmpty
-          ? 'No verses found for this passage'
+          ? 'No verses found for "${ref.rawText}". Check the passage reference.'
           : null;
       _versesByRef[index] = verses;
     });
@@ -450,10 +483,23 @@ class _PopupContentState extends State<_PopupContent> {
 
                     if (verses == null) {
                       return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 30),
+                        padding: EdgeInsets.symmetric(vertical: 40),
                         child: Center(
-                          child: CircularProgressIndicator(
-                              color: AppTheme.primaryBlue),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(
+                                  color: AppTheme.primaryBlue),
+                              SizedBox(height: 16),
+                              Text(
+                                'Loading Bible passage...',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.primaryBlue,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     }

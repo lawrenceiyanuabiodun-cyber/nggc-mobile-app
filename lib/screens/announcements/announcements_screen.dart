@@ -63,7 +63,14 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     if (!mounted) return;
 
     if (response.isSuccess) {
-      final list = response.asList ?? [];
+      // API returns { total, count, announcements: [...] } — extract the array
+      List<dynamic> list = [];
+      final asMap = response.asMap;
+      if (asMap != null && asMap['announcements'] is List) {
+        list = asMap['announcements'] as List<dynamic>;
+      } else {
+        list = response.asList ?? [];
+      }
       _sortList(list);
       await CacheService.saveAnnouncements(list);
 
