@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:video_player/video_player.dart';
@@ -610,6 +612,15 @@ class _MediaPlayerBottomSheetState extends State<MediaPlayerBottomSheet> {
 
   Future<void> _initPlayer() async {
     try {
+      // On web, open media in new browser tab (native browser handles playback)
+      if (kIsWeb) {
+        final uri = Uri.parse(widget.url);
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+        return;
+      }
       if (widget.mediaType == 'audio') {
         _audioPlayer = AudioPlayer();
         _audioPlayer!.onDurationChanged.listen((d) {
