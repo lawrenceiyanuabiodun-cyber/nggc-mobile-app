@@ -22,6 +22,8 @@ import '../../services/manuals_loader_service.dart';
 import '../../services/reading_plan_service.dart';
 import '../../theme/app_theme.dart';
 import '../announcements/announcements_screen.dart';
+import '../notifications/notifications_screen.dart';
+import '../../services/unread_tracker.dart';
 import '../bible/bible_language_screen.dart';
 import '../bible/reading_plan_reader_screen.dart';
 import '../sermons/sermons_screen.dart';
@@ -191,6 +193,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     _loadDailyVerse();
     _loadTodayLesson();
     _loadTodayReading();
+    _refreshUnreadCount();
   }
 
   Future<void> _loadTodayReading() async {
@@ -1475,6 +1478,83 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     );
   }
 
+  int _unreadCount = 0;
+
+  Future<void> _refreshUnreadCount() async {
+    try {
+      int count = 0;
+      if (await UnreadTracker.isVerseUnread()) count++;
+      if (await UnreadTracker.isReadingUnread()) count++;
+      final annResp = await ApiService.get('/announcements');
+      if (annResp.isSuccess) {
+        final list = annResp.asList ?? [];
+        for (final item in list) {
+          if (item is Map<String, dynamic>) {
+            final id = item['id']?.toString() ?? '';
+            if (id.isNotEmpty && await UnreadTracker.isAnnouncementUnread(id)) {
+              count++;
+            }
+          }
+        }
+      }
+      final serResp = await ApiService.get('/sermons?limit=100');
+      if (serResp.isSuccess) {
+        final list = serResp.asList ?? [];
+        for (final item in list) {
+          if (item is Map<String, dynamic>) {
+            final id = item['id']?.toString() ?? '';
+            if (id.isNotEmpty && await UnreadTracker.isSermonUnread(id)) {
+              count++;
+            }
+          }
+        }
+      }
+      if (mounted) setState(() => _unreadCount = count);
+    } catch (_) {}
+  }
+
+  Widget _buildNotificationBell() {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 24),
+          tooltip: 'Notifications',
+          onPressed: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+            );
+            _refreshUnreadCount();
+          },
+        ),
+        if (_unreadCount > 0)
+          Positioned(
+            right: 6,
+            top: 6,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: AppTheme.errorRed,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+              child: Text(
+                _unreadCount > 99 ? '99+' : '$_unreadCount',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: AppTheme.primaryBlue,
@@ -1501,6 +1581,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
         ],
       ),
       actions: [
+        _buildNotificationBell(),
         IconButton(
           icon: const Icon(Icons.support_agent, color: Colors.white, size: 24),
           tooltip: 'Contact Support',
