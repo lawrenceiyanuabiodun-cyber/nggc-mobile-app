@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+
+import '../../services/update_service.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
@@ -26,6 +30,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _batteryOptimizationDisabled = false;
   bool _notificationsEnabled = false;
   bool _sendingTest = false;
+  bool _checkingUpdate = false;
+  double _downloadProgress = 0.0;
+  bool _downloading = false;
 
   @override
   void initState() {
@@ -124,6 +131,238 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
     );
   }
+
+  Future<void> _checkForUpdate() async {
+    if (_checkingUpdate) return;
+    setState(() => _checkingUpdate = true);
+
+    try {
+      final update = await UpdateService.checkForUpdate();
+      if (!mounted) return;
+      setState(() => _checkingUpdate = false);
+
+      if (update == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white, size: 18),
+                SizedBox(width: 10),
+                Text('You have the latest version!'),
+              ],
+            ),
+            backgroundColor: AppTheme.successGreen,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+
+      // Show update dialog
+      _showUpdateDialog(update);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _checkingUpdate = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not check for updates: \${e.toString()}'),
+          backgroundColor: AppTheme.errorRed,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _showUpdateDialog(UpdateInfo update) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    await showDialog(
+      context: context,
+      barrierDismissible: !_downloading,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialog) {
+          return AlertDialog(
+            backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentGold.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.system_update,
+                    color: AppTheme.accentGoldDark,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Update Available!',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryBlue.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.download, size: 16, color: AppTheme.primaryBlue),
+                        const SizedBox(width: 8),
+                        Text(
+                          '\${update.sizeMb} MB',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryBlue,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Icon(Icons.calendar_today, size: 14, color: AppTheme.textSecondary),
+                        const SizedBox(width: 6),
+                        Text(
+                          update.formattedDate,
+                          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "What's new:",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white10 : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      update.releaseNotes.isEmpty
+                          ? 'Bug fixes and improvements'
+                          : update.releaseNotes,
+                      style: const TextStyle(fontSize: 13, height: 1.5),
+                    ),
+                  ),
+                  if (_downloading) ...[
+                    const SizedBox(height: 20),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Downloading... \${(_downloadProgress * 100).toStringAsFixed(0)}%',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        LinearProgressIndicator(
+                          value: _downloadProgress,
+                          color: AppTheme.primaryBlue,
+                          backgroundColor: AppTheme.primaryBlue.withOpacity(0.15),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Please wait — you will be signed out after install.',
+                          style: TextStyle(fontSize: 11, color: AppTheme.textHint),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: _downloading
+                ? []
+                : [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Later'),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        setDialog(() => _downloading = true);
+                        setState(() => _downloading = true);
+
+                        final filePath = await UpdateService.downloadApk(
+                          downloadUrl: update.downloadUrl,
+                          onProgress: (p) {
+                            setDialog(() => _downloadProgress = p);
+                            setState(() => _downloadProgress = p);
+                          },
+                        );
+
+                        if (!mounted) return;
+
+                        if (filePath == null) {
+                          setDialog(() => _downloading = false);
+                          setState(() => _downloading = false);
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Download failed. Please try again.'),
+                              backgroundColor: AppTheme.errorRed,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                          return;
+                        }
+
+                        // Mark this SHA as installed
+                        await UpdateService.markInstalled(update.remoteSha);
+
+                        // Sign out user (so they log in fresh on new version)
+                        await ref.read(authProvider.notifier).logout();
+
+                        // Launch installer
+                        await UpdateService.installApk(filePath);
+
+                        // Close dialog
+                        if (mounted) Navigator.pop(ctx);
+                      },
+                      icon: const Icon(Icons.download, size: 16),
+                      label: const Text('Download & Install'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryBlue,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _launchAdminUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.inAppWebView);
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not open admin page.'),
+          backgroundColor: AppTheme.errorRed,
+        ),
+      );
+    }
+  }
+
 
   Future<void> _logout() async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -289,6 +528,104 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ]),
             const SizedBox(height: 16),
+            if (user?.isAdmin == true)
+              _buildSection(title: 'Admin Panel', children: [
+                _buildNavTile(
+                  icon: Icons.upload_file_outlined,
+                  label: 'Upload Sermons',
+                  subtitle: 'Add sermon videos, audio & YouTube links',
+                  color: const Color(0xFF6A1B9A),
+                  onTap: () => _launchAdminUrl('https://nggcwebsite.vercel.app/admin.html'),
+                ),
+                _buildNavTile(
+                  icon: Icons.menu_book_outlined,
+                  label: 'Manage Sunday School',
+                  subtitle: 'Upload and manage lesson materials',
+                  color: AppTheme.primaryBlue,
+                  onTap: () => _launchAdminUrl('https://nggc-api.onrender.com/admin'),
+                  isLast: true,
+                ),
+              ]),
+            if (user?.isAdmin == true) const SizedBox(height: 16),
+            if (!kIsWeb)
+              _buildSection(title: 'App Update', children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: AppTheme.accentGold.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.system_update,
+                              color: AppTheme.accentGoldDark,
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Get the latest version',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Check for new features & bug fixes',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Theme.of(context).brightness == Brightness.dark
+                                        ? Colors.white54
+                                        : AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _checkingUpdate ? null : _checkForUpdate,
+                          icon: _checkingUpdate
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.refresh, size: 18),
+                          label: Text(_checkingUpdate ? 'Checking...' : 'Check for Updates'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryBlue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ]),
+            if (!kIsWeb) const SizedBox(height: 16),
             _buildSection(title: 'App Info', children: [
               _buildInfoTile(icon: Icons.info_outline, label: 'App Version', value: _appVersion),
               _buildInfoTile(icon: Icons.church_outlined, label: 'Church', value: 'New Generation Gospel Church'),

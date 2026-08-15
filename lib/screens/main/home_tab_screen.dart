@@ -24,7 +24,7 @@ import '../../theme/app_theme.dart';
 import '../announcements/announcements_screen.dart';
 import '../bible/bible_language_screen.dart';
 import '../bible/reading_plan_reader_screen.dart';
-import '../events/events_screen.dart';
+import '../sermons/sermons_screen.dart';
 import '../lessons/lesson_detail_screen.dart';
 import '../manuals/manuals_screen.dart';
 import '../support/support_screen.dart';
@@ -107,18 +107,18 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
   ];
 
   static const Map<String, String> _englishToYorubaBookNames = {
-    'Genesis': 'Gẹ́nẹ́sísì',
-    'Exodus': 'Ékísódù',
-    'Leviticus': 'Léfítíkù',
+    'Genesis': 'GÃ¡ÂºÂ¹ÃŒÂnÃ¡ÂºÂ¹ÃŒÂsÃƒÂ­sÃƒÂ¬',
+    'Exodus': 'Ãƒâ€°kÃƒÂ­sÃƒÂ³dÃƒÂ¹',
+    'Leviticus': 'LÃƒÂ©fÃƒÂ­tÃƒÂ­kÃƒÂ¹',
     'Numbers': 'Numeri',
     'Deuteronomy': 'Deuteronomi',
     'Joshua': 'Josua',
-    'Judges': 'Awọn Onidajọ',
+    'Judges': 'AwÃ¡Â»Ân OnidajÃ¡Â»Â',
     'Ruth': 'Ruutu',
     '1 Samuel': 'Samueli (Kinni)',
     '2 Samuel': 'Samueli (Keji)',
-    '1 Kings': 'Awon Ọba (Kinni)',
-    '2 Kings': 'Awon Ọba (Keji)',
+    '1 Kings': 'Awon Ã¡Â»Å’ba (Kinni)',
+    '2 Kings': 'Awon Ã¡Â»Å’ba (Keji)',
     '1 Chronicles': 'Kronika (Kinni)',
     '2 Chronicles': 'Kronika (Keji)',
     'Ezra': 'Esra',
@@ -127,20 +127,20 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     'Job': 'Jobu',
     'Psalm': 'Psalmu',
     'Psalms': 'Psalmu',
-    'Proverbs': 'Òwe',
+    'Proverbs': 'Ãƒâ€™we',
     'Ecclesiastes': 'Oniwasu',
-    'Song of Solomon': 'Orin Solomọni',
-    'Song of Songs': 'Orin Solomọni',
+    'Song of Solomon': 'Orin SolomÃ¡Â»Âni',
+    'Song of Songs': 'Orin SolomÃ¡Â»Âni',
     'Isaiah': 'Isaiah',
     'Jeremiah': 'Jeremiah',
-    'Lamentations': 'Ẹkún Jeremiah',
+    'Lamentations': 'Ã¡ÂºÂ¸kÃƒÂºn Jeremiah',
     'Ezekiel': 'Esekieli',
     'Daniel': 'Danieli',
     'Hosea': 'Hosea',
     'Joel': 'Joeli',
-    'Amos': 'Amọsi',
+    'Amos': 'AmÃ¡Â»Âsi',
     'Obadiah': 'Obadiah',
-    'Jonah': 'Jonà',
+    'Jonah': 'JonÃƒÂ ',
     'Micah': 'Mika',
     'Nahum': 'Nahumu',
     'Habakkuk': 'Habakkuku',
@@ -152,28 +152,28 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     'Mark': 'Marku',
     'Luke': 'Luku',
     'John': 'Johanu',
-    'Acts': 'Ise Awọn Aposteli',
-    'Acts of the Apostles': 'Ise Awọn Aposteli',
-    'Romans': 'Awọn Ará Romu',
-    '1 Corinthians': 'Awọn Ará Korinti (Kinni)',
-    '2 Corinthians': 'Awọn Ará Korinti (Keji)',
-    'Galatians': 'Awọn Ará Galatia',
-    'Ephesians': 'Awọn Ará Efesu',
-    'Philippians': 'Awọn Ará Filippi',
-    'Colossians': 'Awọn Ará Kolosse',
-    '1 Thessalonians': 'Awọn Ará Tessalonika (Kinni)',
-    '2 Thessalonians': 'Awọn Ará Tessalonika (Keji)',
+    'Acts': 'Ise AwÃ¡Â»Ân Aposteli',
+    'Acts of the Apostles': 'Ise AwÃ¡Â»Ân Aposteli',
+    'Romans': 'AwÃ¡Â»Ân ArÃƒÂ¡ Romu',
+    '1 Corinthians': 'AwÃ¡Â»Ân ArÃƒÂ¡ Korinti (Kinni)',
+    '2 Corinthians': 'AwÃ¡Â»Ân ArÃƒÂ¡ Korinti (Keji)',
+    'Galatians': 'AwÃ¡Â»Ân ArÃƒÂ¡ Galatia',
+    'Ephesians': 'AwÃ¡Â»Ân ArÃƒÂ¡ Efesu',
+    'Philippians': 'AwÃ¡Â»Ân ArÃƒÂ¡ Filippi',
+    'Colossians': 'AwÃ¡Â»Ân ArÃƒÂ¡ Kolosse',
+    '1 Thessalonians': 'AwÃ¡Â»Ân ArÃƒÂ¡ Tessalonika (Kinni)',
+    '2 Thessalonians': 'AwÃ¡Â»Ân ArÃƒÂ¡ Tessalonika (Keji)',
     '1 Timothy': 'Timoteu (Kinni)',
     '2 Timothy': 'Timoteu (Keji)',
     'Titus': 'Titu',
-    'Philemon': 'Filimọni',
-    'Hebrews': 'Awọn Heberu',
-    'James': 'Jákọ́bù',
+    'Philemon': 'FilimÃ¡Â»Âni',
+    'Hebrews': 'AwÃ¡Â»Ân Heberu',
+    'James': 'JÃƒÂ¡kÃ¡Â»ÂÃŒÂbÃƒÂ¹',
     '1 Peter': 'Peteru (Kinni)',
     '2 Peter': 'Peteru (Keji)',
     '1 John': 'Johanu (Kinni)',
     '2 John': 'Johanu (Keji)',
-    '3 John': 'Johanu (Kẹta)',
+    '3 John': 'Johanu (KÃ¡ÂºÂ¹ta)',
     'Jude': 'Juda',
     'Revelation': 'Ifihan',
   };
@@ -560,7 +560,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     }
 
     if (language != 'yoruba') {
-      // Try NLT → NIV → KJV fallback for English share
+      // Try NLT Ã¢â€ â€™ NIV Ã¢â€ â€™ KJV fallback for English share
       final parts = _parseReferenceParts(englishRef);
       final book = parts['book']?.trim() ?? '';
       final ch = parts['chapter']?.trim() ?? '';
@@ -632,8 +632,8 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
     return _ShareVersePayload(
       verseText: yorubaText,
       referenceText: '$yorubaBook $chapter:$verse',
-      shareLabel: 'Ẹsẹ Bibeli ti Ọjọ́',
-      flyerTitle: 'ẸSẸ BIBELI TI ỌJỌ́',
+      shareLabel: 'Ã¡ÂºÂ¸sÃ¡ÂºÂ¹ Bibeli ti Ã¡Â»Å’jÃ¡Â»ÂÃŒÂ',
+      flyerTitle: 'Ã¡ÂºÂ¸SÃ¡ÂºÂ¸ BIBELI TI Ã¡Â»Å’JÃ¡Â»Å’ÃŒÂ',
       translationTag: 'YOR',
     );
   }
@@ -1328,7 +1328,7 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Rest Day 🌿',
+                  'Rest Day Ã°Å¸Å’Â¿',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -1811,11 +1811,11 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
         onTap: () => _navigateTo(const AnnouncementsScreen()),
       ),
       _FeatureItem(
-        icon: Icons.event_outlined,
-        label: 'Events',
-        subtitle: 'Upcoming Events',
+        icon: Icons.mic,
+        label: 'Sermons',
+        subtitle: 'Listen & Watch',
         color: const Color(0xFF6A1B9A),
-        onTap: () => _navigateTo(const EventsScreen()),
+        onTap: () => _navigateTo(const SermonsScreen()),
       ),
     ];
 

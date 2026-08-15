@@ -1,8 +1,9 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Color;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:http/http.dart' as http;
@@ -60,10 +61,15 @@ class FcmService {
       // 4. Get FCM token (uses VAPID key on web)
       await _getAndCacheToken();
 
-      // 5. Setup message handlers
+      // 5. Register Android notification channel BEFORE handlers
+      if (!kIsWeb) {
+        await _registerFcmChannel();
+      }
+
+      // 6. Setup message handlers
       _setupMessageHandlers();
 
-      // 6. Setup token refresh listener
+      // 7. Setup token refresh listener
       _messaging.onTokenRefresh.listen((newToken) async {
         debugPrint('FCM Token refreshed: ${newToken.substring(0, 20)}...');
         _cachedToken = newToken;
@@ -76,6 +82,39 @@ class FcmService {
     } catch (e) {
       debugPrint('FCM Service initialization failed: $e');
     }
+  }
+
+  // Create and register the Android notification channel + initialize plugin
+  static Future<void> _registerFcmChannel() async {
+    if (kIsWeb) return;
+
+    // Initialize the local notifications plugin
+    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initSettings = InitializationSettings(android: androidInit);
+    await _localNotifications.initialize(initSettings);
+
+    // Create the notification channel on Android 8.0+
+    const channel = AndroidNotificationChannel(
+      'nggc_fcm_channel',
+      'NGGC Push Notifications',
+      description: 'Announcements, events, and church updates',
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+    );
+
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+
+    // Request Android 13+ notification permission
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
+
+    debugPrint('FCM Android notification channel registered');
   }
 
   // Request notification permissions
@@ -226,24 +265,35 @@ class FcmService {
     if (kIsWeb) return;
 
     final notification = message.notification;
-    if (notification == null) return;
+    // Also handle data-only messages
+    final title = notification?.title ??
+        message.data['title']?.toString() ??
+        'NGGC';
+    final body = notification?.body ??
+        message.data['body']?.toString() ??
+        '';
 
-    const androidDetails = AndroidNotificationDetails(
+    if (title.isEmpty && body.isEmpty) return;
+
+    final androidDetails = AndroidNotificationDetails(
       'nggc_fcm_channel',
       'NGGC Push Notifications',
-      channelDescription: 'Bible verses and church updates',
+      channelDescription: 'Announcements, events, and church updates',
       importance: Importance.max,
       priority: Priority.high,
       icon: '@mipmap/ic_launcher',
-      styleInformation: BigTextStyleInformation(''),
+      color: const Color(0xFF1A237E),
+      playSound: true,
+      enableVibration: true,
+      styleInformation: BigTextStyleInformation(body),
     );
 
-    const details = NotificationDetails(android: androidDetails);
+    final details = NotificationDetails(android: androidDetails);
 
     await _localNotifications.show(
-      notification.hashCode,
-      notification.title ?? 'NGGC',
-      notification.body ?? '',
+      DateTime.now().millisecondsSinceEpoch.remainder(100000),
+      title,
+      body,
       details,
     );
   }
