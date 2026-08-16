@@ -110,28 +110,139 @@ class _SermonsScreenState extends State<SermonsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.surfaceLight,
-      appBar: AppBar(
-        title: const Text('Sermons'),
-        backgroundColor: AppTheme.primaryBlue,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => _fetchData(forceRefresh: true),
-            tooltip: 'Refresh',
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: AppTheme.surfaceLight,
+        appBar: AppBar(
+          title: const Text('Sermons'),
+          backgroundColor: AppTheme.primaryBlue,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () => _fetchData(forceRefresh: true),
+              tooltip: 'Refresh',
+            ),
+          ],
+          bottom: const TabBar(
+            indicatorColor: AppTheme.accentGold,
+            indicatorWeight: 3,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            tabs: [
+              Tab(icon: Icon(Icons.audiotrack), text: 'Audio'),
+              Tab(icon: Icon(Icons.play_circle_outline), text: 'Videos'),
+            ],
           ),
+        ),
+        body: _isLoading
+            ? _buildLoadingShimmer()
+            : _error != null
+                ? _buildError()
+                : TabBarView(
+                    children: [
+                      _buildTabContent('audio'),
+                      _buildTabContent('video'),
+                    ],
+                  ),
+      ),
+    );
+  }
+
+  Widget _buildTabContent(String mediaType) {
+    final filtered = _sermons.where((s) {
+      if (s is Map<String, dynamic>) {
+        final mt = s['media_type']?.toString().toLowerCase() ?? '';
+        return mt == mediaType;
+      }
+      return false;
+    }).toList();
+
+    final featuredMatches = _featured != null &&
+        (_featured!['media_type']?.toString().toLowerCase() ?? '') == mediaType;
+
+    if (filtered.isEmpty && !featuredMatches) {
+      return _buildEmptyForType(mediaType);
+    }
+
+    return RefreshIndicator(
+      color: AppTheme.primaryBlue,
+      onRefresh: () => _fetchData(forceRefresh: true),
+      child: CustomScrollView(
+        slivers: [
+          if (featuredMatches)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Featured Sermon',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryBlue,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildSermonCard(_featured!, featured: true),
+                  ],
+                ),
+              ),
+            ),
+          if (filtered.isNotEmpty)
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final sermon = filtered[index] as Map<String, dynamic>;
+                    final featuredId = _featured?['id'];
+                    if (featuredMatches && featuredId != null && sermon['id'] == featuredId) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildSermonCard(sermon, featured: false),
+                    );
+                  },
+                  childCount: filtered.length,
+                ),
+              ),
+            ),
         ],
       ),
-      body: _isLoading
-          ? _buildLoadingShimmer()
-          : _error != null
-              ? _buildError()
-              : _sermons.isEmpty && _featured == null
-                  ? _buildEmpty()
-                  : _buildContent(),
+    );
+  }
+
+  Widget _buildEmptyForType(String mediaType) {
+    final label = mediaType == 'audio' ? 'audio sermons' : 'video sermons';
+    final icon = mediaType == 'audio' ? Icons.audiotrack : Icons.videocam_off;
+    return ListView(
+      children: [
+        const SizedBox(height: 100),
+        Icon(icon, size: 64, color: AppTheme.textHint),
+        const SizedBox(height: 16),
+        Text(
+          'No $label yet',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textSecondary,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Check back later for new sermons',
+          style: TextStyle(fontSize: 13, color: AppTheme.textHint),
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 
