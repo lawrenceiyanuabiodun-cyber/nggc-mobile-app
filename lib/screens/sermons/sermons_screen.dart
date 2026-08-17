@@ -919,7 +919,57 @@ class _MediaPlayerBottomSheetState extends State<MediaPlayerBottomSheet> {
     }
   }
 
+  bool _isSafariBrowser() {
+    if (!kIsWeb) return false;
+    try {
+      final ua = html.window.navigator.userAgent.toLowerCase();
+      final hasSafari = ua.contains('safari');
+      final isChrome  = ua.contains('chrome') || ua.contains('crios');
+      final isFirefox = ua.contains('firefox') || ua.contains('fxios');
+      final isEdge    = ua.contains('edg');
+      return hasSafari && !isChrome && !isFirefox && !isEdge;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Widget _buildWebHtml5Player() {
+    // Safari only: fall back to opening in new tab (Safari blocks streaming of GitHub Releases)
+    if (_isSafariBrowser()) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              widget.mediaType == 'audio' ? Icons.audiotrack : Icons.play_circle,
+              size: 64,
+              color: AppTheme.primaryBlue,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Tap below to open media',
+              style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () async {
+                final uri = Uri.parse(widget.url);
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                if (mounted) Navigator.of(context).pop();
+              },
+              icon: const Icon(Icons.open_in_new),
+              label: Text(widget.mediaType == 'audio' ? 'Play Audio' : 'Watch Video'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryBlue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final viewType = 'html5-player-${widget.url.hashCode}';
     // Register the view factory once per URL
     ui_web.platformViewRegistry.registerViewFactory(viewType, (int viewId) {
