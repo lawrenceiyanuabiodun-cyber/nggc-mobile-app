@@ -100,7 +100,7 @@ class _SermonsScreenState extends State<SermonsScreen> {
     final typeLabel = mediaType == 'video' ? 'Watch this sermon' : 'Listen to this sermon';
     final text = typeLabel + ' from NGGC. ' + title + ' - ' + mediaUrl + ' - Get the app: https://nggcapp.vercel.app';
     try {
-      await SharePlus.instance.share(ShareParams(text: text, subject: 'NGGC Sermon: ' + title));
+      await Share.share(text, subject: 'NGGC Sermon: ' + title);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
