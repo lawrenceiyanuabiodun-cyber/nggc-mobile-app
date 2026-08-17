@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -92,6 +93,20 @@ class _SermonsScreenState extends State<SermonsScreen> {
       return DateFormat('d MMMM yyyy').format(dt);
     } catch (_) {
       return raw;
+    }
+  }
+
+  Future<void> _shareSermon(String title, String mediaUrl, String mediaType) async {
+    final typeLabel = mediaType == 'video' ? 'Watch this sermon' : 'Listen to this sermon';
+    final text = typeLabel + ' from NGGC. ' + title + ' - ' + mediaUrl + ' - Get the app: https://nggcapp.vercel.app';
+    try {
+      await SharePlus.instance.share(ShareParams(text: text, subject: 'NGGC Sermon: ' + title));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Share failed: ' + e.toString())),
+        );
+      }
     }
   }
 
@@ -544,8 +559,23 @@ class _SermonsScreenState extends State<SermonsScreen> {
                             ),
                           ),
                         ),
-                      )
-                    else
+                      ),
+                    if (mediaUrl != null && mediaUrl.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      IconButton(
+                        onPressed: () => _shareSermon(title, mediaUrl, mediaType),
+                        icon: const Icon(Icons.share, size: 20),
+                        color: AppTheme.primaryBlue,
+                        tooltip: 'Share sermon',
+                        style: IconButton.styleFrom(
+                          backgroundColor: AppTheme.primaryBlue.withOpacity(0.1),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (mediaUrl == null || mediaUrl.isEmpty)
                       Expanded(
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 8),
