@@ -5,6 +5,10 @@ import 'package:intl/intl.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:video_player/video_player.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:ui_web' as ui_web;
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
 
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
@@ -723,13 +727,10 @@ class _MediaPlayerBottomSheetState extends State<MediaPlayerBottomSheet> {
 
   Future<void> _initPlayer() async {
     try {
-      // On web, open media in new browser tab (native browser handles playback)
+      // On web, use in-app HTML5 audio/video player via WebView-like widget
       if (kIsWeb) {
-        final uri = Uri.parse(widget.url);
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-        if (mounted) {
-          Navigator.of(context).pop();
-        }
+        // Just mark loading complete; the build method will render an HTML player
+        if (mounted) setState(() => _isLoading = false);
         return;
       }
       if (widget.mediaType == 'audio') {
@@ -898,6 +899,11 @@ class _MediaPlayerBottomSheetState extends State<MediaPlayerBottomSheet> {
       return const Center(child: CircularProgressIndicator());
     }
 
+    // WEB: use native HTML5 player via HtmlElementView
+    if (kIsWeb) {
+      return _buildWebHtml5Player();
+    }
+
     if (widget.mediaType == 'audio') {
       return _buildAudioPlayer();
     } else if (widget.mediaType == 'video') {
@@ -911,6 +917,43 @@ class _MediaPlayerBottomSheetState extends State<MediaPlayerBottomSheet> {
     } else {
       return const Center(child: Text('Unsupported media type'));
     }
+  }
+
+  Widget _buildWebHtml5Player() {
+    final viewType = 'html5-player-${widget.url.hashCode}';
+    // Register the view factory once per URL
+    ui_web.platformViewRegistry.registerViewFactory(viewType, (int viewId) {
+      if (widget.mediaType == 'audio') {
+        final audio = html.AudioElement()
+          ..src = widget.url
+          ..controls = true
+          ..autoplay = false
+          ..style.width = '100%'
+          ..style.height = '80px';
+        return audio;
+      } else {
+        // Video (direct MP4). For YouTube URLs use iframe embed
+        if (widget.url.contains('youtube.com') || widget.url.contains('youtu.be')) {
+          final embedUrl = _convertToEmbedUrl(widget.url);
+          final iframe = html.IFrameElement()
+            ..src = embedUrl
+            ..style.border = '0'
+            ..style.width = '100%'
+            ..style.height = '100%'
+            ..allowFullscreen = true
+            ..allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+          return iframe;
+        }
+        final video = html.VideoElement()
+          ..src = widget.url
+          ..controls = true
+          ..autoplay = false
+          ..style.width = '100%'
+          ..style.height = '100%';
+        return video;
+      }
+    });
+    return HtmlElementView(viewType: viewType);
   }
 
   Widget _buildAudioPlayer() {
