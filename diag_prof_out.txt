@@ -1,0 +1,120 @@
+﻿Total lines: 590
+
+=== First 60 lines (imports + class start) ===
+   1 | import 'package:flutter/material.dart';
+   2 | import 'package:flutter_riverpod/flutter_riverpod.dart';
+   3 | import 'package:package_info_plus/package_info_plus.dart';
+   4 | 
+   5 | import '../../providers/auth_provider.dart';
+   6 | import '../../providers/theme_provider.dart';
+   7 | import '../../services/battery_optimization_service.dart';
+   8 | import '../../services/notification_service.dart';
+   9 | import '../../theme/app_theme.dart';
+  10 | import '../bible/bible_reading_progress_screen.dart';
+  11 | import '../bible/bible_saved_verses_screen.dart';
+  12 | import '../favorites/favorites_screen.dart';
+  13 | import '../notes/notes_screen.dart';
+  14 | import '../search/search_screen.dart';
+  15 | import 'change_pin_screen.dart';
+  16 | 
+  17 | class ProfileScreen extends ConsumerStatefulWidget {
+  18 |   const ProfileScreen({super.key});
+  19 | 
+  20 |   @override
+  21 |   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+  22 | }
+  23 | 
+  24 | class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  25 |   String _appVersion = '';
+  26 |   bool _batteryOptimizationDisabled = false;
+  27 |   bool _notificationsEnabled = false;
+  28 |   bool _sendingTest = false;
+  29 | 
+  30 |   @override
+  31 |   void initState() {
+  32 |     super.initState();
+  33 |     _loadAppVersion();
+  34 |     _loadNotificationStatus();
+  35 |   }
+  36 | 
+  37 |   Future<void> _loadAppVersion() async {
+  38 |     try {
+  39 |       final info = await PackageInfo.fromPlatform();
+  40 |       if (mounted) setState(() => _appVersion = 'v${info.version}');
+  41 |     } catch (_) {
+  42 |       setState(() => _appVersion = 'v1.0.0');
+  43 |     }
+  44 |   }
+  45 | 
+  46 |   Future<void> _loadNotificationStatus() async {
+  47 |     final battery = await BatteryOptimizationService.isIgnoringBatteryOptimizations();
+  48 |     final notif = await NotificationService.areNotificationsEnabled();
+  49 |     if (!mounted) return;
+  50 |     setState(() {
+  51 |       _batteryOptimizationDisabled = battery;
+  52 |       _notificationsEnabled = notif;
+  53 |     });
+  54 |   }
+  55 | 
+  56 |   Future<void> _sendTestNotification() async {
+  57 |     if (_sendingTest) return;
+  58 |     setState(() => _sendingTest = true);
+  59 |     try {
+  60 |       await NotificationService.showTestNotification();
+
+=== Searching for 'ListTile' or section headers ===
+  24 | class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  25 |   String _appVersion = '';
+  26 |   bool _batteryOptimizationDisabled = false;
+  27 |   bool _notificationsEnabled = false;
+---
+  32 |     super.initState();
+  33 |     _loadAppVersion();
+  34 |     _loadNotificationStatus();
+  35 |   }
+---
+  36 | 
+  37 |   Future<void> _loadAppVersion() async {
+  38 |     try {
+  39 |       final info = await PackageInfo.fromPlatform();
+---
+  39 |       final info = await PackageInfo.fromPlatform();
+  40 |       if (mounted) setState(() => _appVersion = 'v${info.version}');
+  41 |     } catch (_) {
+  42 |       setState(() => _appVersion = 'v1.0.0');
+---
+  41 |     } catch (_) {
+  42 |       setState(() => _appVersion = 'v1.0.0');
+  43 |     }
+  44 |   }
+---
+ 127 | 
+ 128 |   Future<void> _logout() async {
+ 129 |     final isDark = Theme.of(context).brightness == Brightness.dark;
+ 130 |     final confirm = await showDialog<bool>(
+---
+ 151 |     if (confirm == true) {
+ 152 |       await ref.read(authProvider.notifier).logout();
+ 153 |     }
+ 154 |   }
+---
+ 253 |             const SizedBox(height: 16),
+ 254 |             _buildSection(title: 'Settings', children: [
+ 255 |               _buildNavTile(
+ 256 |                 icon: Icons.lock_reset_outlined,
+---
+ 292 |             _buildSection(title: 'App Info', children: [
+ 293 |               _buildInfoTile(icon: Icons.info_outline, label: 'App Version', value: _appVersion),
+ 294 |               _buildInfoTile(icon: Icons.church_outlined, label: 'Church', value: 'New Generation Gospel Church'),
+ 295 |               _buildInfoTile(icon: Icons.school_outlined, label: 'Ministry', value: 'Sunday School Department'),
+---
+ 307 |               child: ElevatedButton.icon(
+ 308 |                 onPressed: _logout,
+ 309 |                 icon: const Icon(Icons.logout),
+ 310 |                 label: const Text('Sign Out'),
+---
+ 308 |                 onPressed: _logout,
+ 309 |                 icon: const Icon(Icons.logout),
+ 310 |                 label: const Text('Sign Out'),
+ 311 |                 style: ElevatedButton.styleFrom(
+---

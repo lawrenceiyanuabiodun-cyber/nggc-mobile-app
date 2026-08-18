@@ -1487,7 +1487,8 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       if (await UnreadTracker.isReadingUnread()) count++;
       final annResp = await ApiService.get('/announcements');
       if (annResp.isSuccess) {
-        final list = annResp.asList ?? [];
+        final annMap = annResp.asMap;
+        final list = (annMap?['announcements'] as List?) ?? annResp.asList ?? [];
         for (final item in list) {
           if (item is Map<String, dynamic>) {
             final id = item['id']?.toString() ?? '';
@@ -1499,7 +1500,8 @@ class _HomeTabScreenState extends ConsumerState<HomeTabScreen> {
       }
       final serResp = await ApiService.get('/sermons?limit=100');
       if (serResp.isSuccess) {
-        final list = serResp.asList ?? [];
+        final serMap = serResp.asMap;
+        final list = (serMap?['sermons'] as List?) ?? serResp.asList ?? [];
         for (final item in list) {
           if (item is Map<String, dynamic>) {
             final id = item['id']?.toString() ?? '';

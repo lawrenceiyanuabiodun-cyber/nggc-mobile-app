@@ -60,7 +60,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (results[2] != null) {
       final r = results[2] as ApiResponse;
       if (r.isSuccess) {
-        final list = r.asList ?? [];
+        final map = r.asMap;
+        final list = (map?['announcements'] as List?) ?? r.asList ?? [];
         for (final item in list) {
           if (item is Map<String, dynamic>) {
             final id = item['id']?.toString() ?? '';
@@ -74,7 +75,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (results[3] != null) {
       final r = results[3] as ApiResponse;
       if (r.isSuccess) {
-        final list = r.asList ?? [];
+        final map = r.asMap;
+        final list = (map?['sermons'] as List?) ?? r.asList ?? [];
         for (final item in list) {
           if (item is Map<String, dynamic>) {
             final id = item['id']?.toString() ?? '';
