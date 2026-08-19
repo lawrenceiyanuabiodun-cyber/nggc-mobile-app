@@ -19,11 +19,12 @@ class UpdateService {
   static const _apiUrl =
       'https://api.github.com/repos/$_repoOwner/$_repoName/releases/latest';
   static const _installedShaKey = 'installed_apk_sha';
+  static const _installedAtKey = 'installed_apk_at';
   static const _lastCheckKey = 'last_update_check_ms';
 
   /// Public: check if an update is available.
   /// Returns null if no update. Returns UpdateInfo if update available.
-  static Future<UpdateInfo?> checkForUpdate() async {
+  static Future<UpdateInfo?> checkForUpdate({bool allowUnknownAsUpdate = false}) async {
     // Web + iOS always up-to-date
     if (kIsWeb) return null;
     if (!Platform.isAndroid) return null;
@@ -60,28 +61,73 @@ class UpdateService {
 
       if (remoteSha.isEmpty || downloadUrl.isEmpty) return null;
 
-      // Compare with installed SHA
       final prefs = await SharedPreferences.getInstance();
       final installedSha = prefs.getString(_installedShaKey);
+      final installedAtStr = prefs.getString(_installedAtKey);
 
-      // First run — mark current version as installed
+      // Parse remote APK upload time
+      DateTime? remoteUploadedAt;
+      try {
+        remoteUploadedAt = DateTime.parse(updatedAt);
+      } catch (_) {}
+
+      // Parse when user last installed
+      DateTime? installedAt;
+      try {
+        if (installedAtStr != null) installedAt = DateTime.parse(installedAtStr);
+      } catch (_) {}
+
+      // First run / legacy install with no stored SHA
       if (installedSha == null || installedSha.isEmpty) {
+        if (allowUnknownAsUpdate) {
+          // Manual check: treat unknown install as needing update
+          return UpdateInfo(
+            remoteSha: remoteSha,
+            downloadUrl: downloadUrl,
+            sizeBytes: sizeBytes,
+            updatedAt: updatedAt,
+            releaseName: releaseName,
+            releaseNotes: releaseNotes,
+          );
+        }
+        // Auto check: silently record current SHA as installed
         await prefs.setString(_installedShaKey, remoteSha);
+        await prefs.setString(
+          _installedAtKey,
+          remoteUploadedAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
+        );
         return null;
       }
 
-      // Same SHA = up to date
-      if (installedSha == remoteSha) return null;
+      // Check 1: SHA changed = definitely a new APK
+      if (installedSha != remoteSha) {
+        return UpdateInfo(
+          remoteSha: remoteSha,
+          downloadUrl: downloadUrl,
+          sizeBytes: sizeBytes,
+          updatedAt: updatedAt,
+          releaseName: releaseName,
+          releaseNotes: releaseNotes,
+        );
+      }
 
-      // Different SHA = update available!
-      return UpdateInfo(
-        remoteSha: remoteSha,
-        downloadUrl: downloadUrl,
-        sizeBytes: sizeBytes,
-        updatedAt: updatedAt,
-        releaseName: releaseName,
-        releaseNotes: releaseNotes,
-      );
+      // Check 2: Same SHA but APK was re-uploaded after user installed
+      // (Codemagic replaces APK on same tag — SHA may briefly match old one)
+      if (installedAt != null && remoteUploadedAt != null) {
+        if (remoteUploadedAt.isAfter(installedAt)) {
+          return UpdateInfo(
+            remoteSha: remoteSha,
+            downloadUrl: downloadUrl,
+            sizeBytes: sizeBytes,
+            updatedAt: updatedAt,
+            releaseName: releaseName,
+            releaseNotes: releaseNotes,
+          );
+        }
+      }
+
+      // All checks passed = up to date
+      return null;
     } catch (e) {
       debugPrint('UpdateService checkForUpdate error: $e');
       return null;
@@ -151,9 +197,11 @@ class UpdateService {
   }
 
   /// Mark the new SHA as installed (call after successful install prompt).
-  static Future<void> markInstalled(String sha) async {
+  static Future<void> markInstalled(String sha, {String? uploadedAt}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_installedShaKey, sha);
+    await prefs.setString(_installedAtKey,
+        uploadedAt ?? DateTime.now().toIso8601String());
   }
 
   /// Get current app version for display.

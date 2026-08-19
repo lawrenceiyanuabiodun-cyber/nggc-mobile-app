@@ -137,7 +137,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     setState(() => _checkingUpdate = true);
 
     try {
-      final update = await UpdateService.checkForUpdate();
+      final update = await UpdateService.checkForUpdate(allowUnknownAsUpdate: true);
       if (!mounted) return;
       setState(() => _checkingUpdate = false);
 
