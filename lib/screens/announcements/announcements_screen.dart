@@ -227,6 +227,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         item['body']?.toString() ?? item['content']?.toString() ?? '';
     final createdAt = item['created_at']?.toString() ?? '';
     final formattedDate = _formatDate(createdAt);
+    final imageUrl = item['image_url']?.toString();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -304,6 +305,30 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
               ],
             ),
           ),
+          if (imageUrl != null && imageUrl.isNotEmpty)
+            ClipRRect(
+              borderRadius: BorderRadius.zero,
+              child: Image.network(
+                imageUrl,
+                width: double.infinity,
+                height: 200,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return Container(
+                    height: 200,
+                    color: AppTheme.surfaceLight,
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.primaryBlue,
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stack) => const SizedBox.shrink(),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
             child: Column(
