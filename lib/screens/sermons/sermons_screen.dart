@@ -98,13 +98,13 @@ class _SermonsScreenState extends State<SermonsScreen> {
 
   Future<void> _shareSermon(String title, String mediaUrl, String mediaType) async {
     final typeLabel = mediaType == 'video' ? 'Watch this sermon' : 'Listen to this sermon';
-    final text = typeLabel + ' from NGGC. ' + title + ' - ' + mediaUrl + ' - Get the app: https://nggcapp.vercel.app';
+    final text = '$typeLabel from NGGC. $title - $mediaUrl - Get the app: https://nggcapp.vercel.app';
     try {
-      await Share.share(text, subject: 'NGGC Sermon: ' + title);
+      await Share.share(text, subject: 'NGGC Sermon: $title');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Share failed: ' + e.toString())),
+          SnackBar(content: Text('Share failed: $e')),
         );
       }
     }
@@ -125,12 +125,17 @@ class _SermonsScreenState extends State<SermonsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
-        backgroundColor: AppTheme.surfaceLight,
+        backgroundColor: isDark ? const Color(0xFF0F0F1E) : AppTheme.surfaceLight,
         appBar: AppBar(
-          title: const Text('Sermons'),
+          title: const Text(
+            'Sermons',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          ),
           backgroundColor: AppTheme.primaryBlue,
           foregroundColor: Colors.white,
           elevation: 0,
@@ -146,8 +151,9 @@ class _SermonsScreenState extends State<SermonsScreen> {
             indicatorWeight: 3,
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white70,
-            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             tabs: [
+              Tab(icon: Icon(Icons.grid_view_rounded), text: 'All'),
               Tab(icon: Icon(Icons.audiotrack), text: 'Audio'),
               Tab(icon: Icon(Icons.play_circle_outline), text: 'Videos'),
             ],
@@ -159,15 +165,96 @@ class _SermonsScreenState extends State<SermonsScreen> {
                 ? _buildError()
                 : TabBarView(
                     children: [
-                      _buildTabContent('audio'),
-                      _buildTabContent('video'),
+                      _buildAllTabContent(),
+                      _buildFilteredTabContent('audio'),
+                      _buildFilteredTabContent('video'),
                     ],
                   ),
       ),
     );
   }
 
-  Widget _buildTabContent(String mediaType) {
+  /// ─── TAB 1: ALL SERMONS (MATCHES CHURCH WEBSITE) ──────────────────
+  Widget _buildAllTabContent() {
+    if (_sermons.isEmpty && _featured == null) {
+      return _buildEmpty();
+    }
+
+    return RefreshIndicator(
+      color: AppTheme.primaryBlue,
+      onRefresh: () => _fetchData(forceRefresh: true),
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          if (_featured != null)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.star, color: AppTheme.accentGold, size: 20),
+                        SizedBox(width: 6),
+                        Text(
+                          'Featured Sermon',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryBlue,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    _buildSermonCard(_featured!, featured: true),
+                  ],
+                ),
+              ),
+            ),
+          if (_sermons.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Text(
+                  'All Sermons (${_sermons.length})',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final sermon = _sermons[index] as Map<String, dynamic>;
+                    final featuredId = _featured?['id'];
+                    // If featured sermon is already shown at top, skip duplicate
+                    if (featuredId != null && sermon['id'] == featuredId) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildSermonCard(sermon, featured: false),
+                    );
+                  },
+                  childCount: _sermons.length,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// ─── TABS 2 & 3: FILTERED BY TYPE (AUDIO / VIDEO) ─────────────────
+  Widget _buildFilteredTabContent(String mediaType) {
     final filtered = _sermons.where((s) {
       if (s is Map<String, dynamic>) {
         final mt = s['media_type']?.toString().toLowerCase() ?? '';
@@ -187,6 +274,7 @@ class _SermonsScreenState extends State<SermonsScreen> {
       color: AppTheme.primaryBlue,
       onRefresh: () => _fetchData(forceRefresh: true),
       child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           if (featuredMatches)
             SliverToBoxAdapter(
@@ -195,15 +283,21 @@ class _SermonsScreenState extends State<SermonsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Featured Sermon',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryBlue,
-                      ),
+                    Row(
+                      children: const [
+                        Icon(Icons.star, color: AppTheme.accentGold, size: 20),
+                        SizedBox(width: 6),
+                        Text(
+                          'Featured Sermon',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryBlue,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     _buildSermonCard(_featured!, featured: true),
                   ],
                 ),
@@ -238,6 +332,7 @@ class _SermonsScreenState extends State<SermonsScreen> {
     final label = mediaType == 'audio' ? 'audio sermons' : 'video sermons';
     final icon = mediaType == 'audio' ? Icons.audiotrack : Icons.videocam_off;
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       children: [
         const SizedBox(height: 100),
         Icon(icon, size: 64, color: AppTheme.textHint),
@@ -253,7 +348,7 @@ class _SermonsScreenState extends State<SermonsScreen> {
         ),
         const SizedBox(height: 8),
         const Text(
-          'Check back later for new sermons',
+          'Pull down to refresh or check back later',
           style: TextStyle(fontSize: 13, color: AppTheme.textHint),
           textAlign: TextAlign.center,
         ),
@@ -292,7 +387,7 @@ class _SermonsScreenState extends State<SermonsScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              _error!,
+              _error ?? 'Network error',
               style: const TextStyle(
                 fontSize: 13,
                 color: AppTheme.textSecondary,
@@ -316,107 +411,42 @@ class _SermonsScreenState extends State<SermonsScreen> {
   }
 
   Widget _buildEmpty() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.mic_off,
-            size: 56,
-            color: AppTheme.textHint.withOpacity(0.5),
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: const [
+        SizedBox(height: 100),
+        Icon(
+          Icons.mic_off,
+          size: 56,
+          color: AppTheme.textHint,
+        ),
+        SizedBox(height: 16),
+        Text(
+          'No sermons available',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textSecondary,
           ),
-          const SizedBox(height: 16),
-          const Text(
-            'No sermons available',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textSecondary,
-            ),
+          textAlign: TextAlign.center,
+        ),
+        SizedBox(height: 8),
+        Text(
+          'Check back later for new sermons',
+          style: TextStyle(
+            fontSize: 13,
+            color: AppTheme.textHint,
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Check back later for new sermons',
-            style: TextStyle(
-              fontSize: 13,
-              color: AppTheme.textHint,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildContent() {
-    return RefreshIndicator(
-      color: AppTheme.primaryBlue,
-      onRefresh: () => _fetchData(forceRefresh: true),
-      child: CustomScrollView(
-        slivers: [
-          if (_featured != null)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Featured Sermon',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryBlue,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _buildSermonCard(_featured!, featured: true),
-                  ],
-                ),
-              ),
-            ),
-          if (_sermons.isNotEmpty)
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final sermon = _sermons[index] as Map<String, dynamic>;
-                    final featuredId = _featured?['id'];
-                    if (featuredId != null && sermon['id'] == featuredId) {
-                      return const SizedBox.shrink();
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _buildSermonCard(sermon, featured: false),
-                    );
-                  },
-                  childCount: _sermons.length,
-                ),
-              ),
-            )
-          else
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Center(
-                  child: Text(
-                    _featured == null
-                        ? 'No sermons found'
-                        : 'No other sermons available',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 
   Widget _buildSermonCard(Map<String, dynamic> sermon, {bool featured = false}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+
     final title = sermon['title']?.toString() ?? 'Untitled';
     final description = sermon['description']?.toString() ?? '';
     final mediaType = sermon['media_type']?.toString().toLowerCase() ?? 'audio';
@@ -426,17 +456,17 @@ class _SermonsScreenState extends State<SermonsScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: featured ? AppTheme.accentGold : AppTheme.dividerColor,
+          color: featured ? AppTheme.accentGold : (isDark ? Colors.white12 : AppTheme.dividerColor),
           width: featured ? 2 : 1,
         ),
         boxShadow: [
           BoxShadow(
             color: featured
-                ? AppTheme.accentGold.withOpacity(0.1)
-                : Colors.black.withOpacity(0.05),
+                ? AppTheme.accentGold.withOpacity(0.15)
+                : Colors.black.withOpacity(isDark ? 0.25 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -448,9 +478,9 @@ class _SermonsScreenState extends State<SermonsScreen> {
           if (featured)
             Container(
               height: 4,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AppTheme.accentGold,
-                borderRadius: const BorderRadius.only(
+                borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(16),
                   topRight: Radius.circular(16),
                 ),
@@ -462,35 +492,48 @@ class _SermonsScreenState extends State<SermonsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: Text(
                         title,
                         style: TextStyle(
-                          fontSize: featured ? 18 : 16,
+                          fontSize: featured ? 17 : 15,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimary,
+                          color: isDark ? Colors.white : AppTheme.textPrimary,
                         ),
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
-                        vertical: 2,
+                        vertical: 3,
                       ),
                       decoration: BoxDecoration(
                         color: mediaType == 'video'
-                            ? AppTheme.primaryBlue
-                            : AppTheme.accentGold,
+                            ? const Color(0xFFE65100)
+                            : AppTheme.primaryBlue,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(
-                        mediaType.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            mediaType == 'video' ? Icons.play_arrow : Icons.audiotrack,
+                            color: Colors.white,
+                            size: 12,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            mediaType.toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -501,27 +544,27 @@ class _SermonsScreenState extends State<SermonsScreen> {
                     children: [
                       const Icon(
                         Icons.calendar_today_outlined,
-                        size: 14,
-                        color: AppTheme.primaryBlue,
+                        size: 13,
+                        color: AppTheme.accentGoldDark,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         formattedDate,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textSecondary,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.white60 : AppTheme.textSecondary,
                         ),
                       ),
                     ],
                   ),
                 ],
                 if (description.isNotEmpty) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   Text(
                     description,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
-                      color: AppTheme.textSecondary,
+                      color: isDark ? Colors.white70 : AppTheme.textSecondary,
                       height: 1.4,
                     ),
                     maxLines: featured ? 4 : 3,
@@ -541,21 +584,27 @@ class _SermonsScreenState extends State<SermonsScreen> {
                           ),
                           icon: Icon(
                             mediaType == 'video'
-                                ? Icons.play_arrow
+                                ? Icons.play_circle_fill
                                 : Icons.headphones,
                             size: 18,
                           ),
                           label: Text(
-                            mediaType == 'video' ? 'Watch' : 'Listen',
+                            mediaType == 'video' ? 'Watch Sermon' : 'Listen Now',
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryBlue,
+                            backgroundColor: mediaType == 'video'
+                                ? AppTheme.primaryBlue
+                                : const Color(0xFF2E7D32),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
-                              vertical: 8,
+                              vertical: 10,
                             ),
                             textStyle: const TextStyle(
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
                             ),
                           ),
                         ),
@@ -570,7 +619,7 @@ class _SermonsScreenState extends State<SermonsScreen> {
                         style: IconButton.styleFrom(
                           backgroundColor: AppTheme.primaryBlue.withOpacity(0.1),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
                       ),
@@ -755,7 +804,6 @@ class _MediaPlayerBottomSheetState extends State<MediaPlayerBottomSheet> {
     try {
       // On web, use in-app HTML5 audio/video player via WebView-like widget
       if (kIsWeb) {
-        // Just mark loading complete; the build method will render an HTML player
         if (mounted) setState(() => _isLoading = false);
         return;
       }
@@ -775,7 +823,6 @@ class _MediaPlayerBottomSheetState extends State<MediaPlayerBottomSheet> {
         await _audioPlayer!.play(UrlSource(widget.url));
         if (mounted) setState(() => _isLoading = false);
       } else if (widget.mediaType == 'video') {
-        // Check if it's YouTube
         if (_isYouTubeUrl(widget.url)) {
           _isWebView = true;
           final embedUrl = _convertToEmbedUrl(widget.url);
@@ -798,7 +845,6 @@ class _MediaPlayerBottomSheetState extends State<MediaPlayerBottomSheet> {
             )
             ..loadRequest(Uri.parse(embedUrl));
         } else {
-          // Try direct video player
           try {
             _videoController = VideoPlayerController.networkUrl(
               Uri.parse(widget.url),
@@ -812,8 +858,7 @@ class _MediaPlayerBottomSheetState extends State<MediaPlayerBottomSheet> {
               _videoController!.play();
             }
           } catch (e) {
-            // If video_player fails, fallback to WebView
-                    _isWebView = true;
+            _isWebView = true;
             _webViewController = WebViewController()
               ..setJavaScriptMode(JavaScriptMode.unrestricted)
               ..setBackgroundColor(const Color(0x00000000))
@@ -864,10 +909,12 @@ class _MediaPlayerBottomSheetState extends State<MediaPlayerBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       height: MediaQuery.of(context).size.height * 0.7,
       padding: const EdgeInsets.all(20),
@@ -879,7 +926,7 @@ class _MediaPlayerBottomSheetState extends State<MediaPlayerBottomSheet> {
               width: 60,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: isDark ? Colors.white24 : Colors.grey[300],
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -887,10 +934,10 @@ class _MediaPlayerBottomSheetState extends State<MediaPlayerBottomSheet> {
           const SizedBox(height: 16),
           Text(
             widget.title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
+              color: isDark ? Colors.white : AppTheme.textPrimary,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -925,7 +972,6 @@ class _MediaPlayerBottomSheetState extends State<MediaPlayerBottomSheet> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    // WEB: use native HTML5 player via HtmlElementView
     if (kIsWeb) {
       return _buildWebHtml5Player();
     }
