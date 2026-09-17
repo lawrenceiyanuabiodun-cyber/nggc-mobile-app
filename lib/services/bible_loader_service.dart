@@ -12,7 +12,7 @@ class BibleLoaderService {
   static const String _nivBoxName = 'bible_niv';
   static const String _nltBoxName = 'bible_nlt';
 
-  static const String _loadedFlag = 'bibles_loaded_v10';
+  static const String _loadedFlag = 'bibles_loaded_v11';
   static const String _yorubaOrderKey = '_book_order';
 
   static const List<Map<String, String>> translations = [
@@ -308,27 +308,24 @@ class BibleLoaderService {
     );
 
     final dynamic decoded = json.decode(jsonString);
-
     final box = await Hive.openBox(_yorubaBoxName);
     await box.clear();
 
     if (decoded is List) {
       final List<String> bookOrder = [];
-
       final Map<String, Map<String, Map<String, String>>> grouped = {};
 
       for (final item in decoded) {
-        if (item is Map<String, dynamic>) {
+        if (item is Map) {
           final topBookName = item['bookName']?.toString();
 
-          if (item.containsKey('details') &&
-              item['details'] is List) {
+          if (item.containsKey('details') && item['details'] is List) {
             for (final v in item['details'] as List) {
-              if (v is Map<String, dynamic>) {
+              if (v is Map) {
                 _addYorubaVerse(
                   grouped,
                   bookOrder,
-                  v,
+                  Map<String, dynamic>.from(v),
                   fallbackBookName: topBookName,
                 );
               }
@@ -337,7 +334,7 @@ class BibleLoaderService {
             _addYorubaVerse(
               grouped,
               bookOrder,
-              item,
+              Map<String, dynamic>.from(item),
             );
           }
         }
@@ -345,7 +342,6 @@ class BibleLoaderService {
 
       for (final book in bookOrder) {
         final data = grouped[book];
-
         if (data != null) {
           await box.put(book, data);
         }

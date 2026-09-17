@@ -38,8 +38,8 @@ class _SermonsScreenState extends State<SermonsScreen> {
     });
 
     try {
-      final featuredFuture = ApiService.get('/sermons/featured');
-      final allFuture = ApiService.get('/sermons?limit=100');
+      final featuredFuture = ApiService.get('/sermons/featured', requireAuth: false);
+      final allFuture = ApiService.get('/sermons?limit=100', requireAuth: false);
 
       final results = await Future.wait([featuredFuture, allFuture]);
       final featuredResponse = results[0];
