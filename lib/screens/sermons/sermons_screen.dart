@@ -8,7 +8,9 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'web_player_stub.dart' if (dart.library.html) 'web_player_web.dart';
 
 import '../../services/api_service.dart';
+import '../../services/sermon_interaction_service.dart';
 import '../../theme/app_theme.dart';
+import 'sermon_comments_sheet.dart';
 
 class SermonsScreen extends StatefulWidget {
   const SermonsScreen({super.key});
@@ -234,7 +236,6 @@ class _SermonsScreenState extends State<SermonsScreen> {
                   (context, index) {
                     final sermon = _sermons[index] as Map<String, dynamic>;
                     final featuredId = _featured?['id'];
-                    // If featured sermon is already shown at top, skip duplicate
                     if (featuredId != null && sermon['id'] == featuredId) {
                       return const SizedBox.shrink();
                     }
@@ -447,12 +448,17 @@ class _SermonsScreenState extends State<SermonsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
 
+    final id = sermon['id']?.toString() ?? '';
     final title = sermon['title']?.toString() ?? 'Untitled';
     final description = sermon['description']?.toString() ?? '';
     final mediaType = sermon['media_type']?.toString().toLowerCase() ?? 'audio';
     final mediaUrl = sermon['media_url']?.toString();
     final dateRaw = sermon['sermon_date']?.toString() ?? '';
     final formattedDate = _formatDate(dateRaw);
+
+    final userReaction = id.isNotEmpty ? SermonInteractionService.getUserReaction(id) : null;
+    final counts = id.isNotEmpty ? SermonInteractionService.getReactionCounts(id) : <String, int>{};
+    final commentsCount = id.isNotEmpty ? SermonInteractionService.getComments(id).length : 0;
 
     return Container(
       decoration: BoxDecoration(
@@ -571,7 +577,70 @@ class _SermonsScreenState extends State<SermonsScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
+                const SizedBox(height: 12),
+
+                // ─── EMOJI REACTIONS ROW ───────────────────────
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: SermonInteractionService.availableReactions.map((rx) {
+                      final key = rx['key']!;
+                      final emoji = rx['emoji']!;
+                      final isSelected = userReaction == key;
+                      final count = counts[key] ?? 0;
+
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: InkWell(
+                          onTap: id.isEmpty
+                              ? null
+                              : () async {
+                                  await SermonInteractionService.toggleReaction(id, key);
+                                  if (mounted) setState(() {});
+                                },
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppTheme.accentGold.withOpacity(0.25)
+                                  : (isDark ? Colors.white.withOpacity(0.06) : Colors.grey[100]),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isSelected
+                                    ? AppTheme.accentGold
+                                    : (isDark ? Colors.white10 : Colors.grey[300]!),
+                                width: isSelected ? 1.5 : 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(emoji, style: const TextStyle(fontSize: 14)),
+                                if (count > 0) ...[
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '$count',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: isSelected
+                                          ? AppTheme.accentGoldDark
+                                          : (isDark ? Colors.white70 : AppTheme.textSecondary),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
                 const SizedBox(height: 14),
+
+                // ─── ACTION BUTTONS (PLAY + COMMENTS + SHARE) ──
                 Row(
                   children: [
                     if (mediaUrl != null && mediaUrl.isNotEmpty)
@@ -589,7 +658,7 @@ class _SermonsScreenState extends State<SermonsScreen> {
                             size: 18,
                           ),
                           label: Text(
-                            mediaType == 'video' ? 'Watch Sermon' : 'Listen Now',
+                            mediaType == 'video' ? 'Watch' : 'Listen',
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: mediaType == 'video'
@@ -609,8 +678,34 @@ class _SermonsScreenState extends State<SermonsScreen> {
                           ),
                         ),
                       ),
-                    if (mediaUrl != null && mediaUrl.isNotEmpty) ...[
-                      const SizedBox(width: 8),
+                    const SizedBox(width: 8),
+
+                    // Comments Button
+                    IconButton(
+                      onPressed: id.isEmpty
+                          ? null
+                          : () async {
+                              await SermonCommentsSheet.show(context, id, title);
+                              if (mounted) setState(() {});
+                            },
+                      icon: Badge(
+                        isLabelVisible: commentsCount > 0,
+                        label: Text('$commentsCount', style: const TextStyle(fontSize: 9)),
+                        child: const Icon(Icons.chat_bubble_outline, size: 20),
+                      ),
+                      color: AppTheme.primaryBlue,
+                      tooltip: 'Comments & reflections',
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppTheme.primaryBlue.withOpacity(0.1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+
+                    // Share Button
+                    if (mediaUrl != null && mediaUrl.isNotEmpty)
                       IconButton(
                         onPressed: () => _shareSermon(title, mediaUrl, mediaType),
                         icon: const Icon(Icons.share, size: 20),
@@ -620,21 +715,6 @@ class _SermonsScreenState extends State<SermonsScreen> {
                           backgroundColor: AppTheme.primaryBlue.withOpacity(0.1),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                      ),
-                    ],
-                    if (mediaUrl == null || mediaUrl.isEmpty)
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          alignment: Alignment.center,
-                          child: const Text(
-                            'No media available',
-                            style: TextStyle(
-                              color: AppTheme.textHint,
-                              fontSize: 12,
-                            ),
                           ),
                         ),
                       ),

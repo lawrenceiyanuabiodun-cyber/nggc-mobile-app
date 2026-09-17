@@ -24,6 +24,7 @@ class AdminDashboardScreen extends ConsumerStatefulWidget {
 
 class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   Map<String, dynamic>? _stats;
+  List<dynamic> _recentUsers = [];
   bool _isLoading = true;
   String? _error;
 
@@ -40,6 +41,11 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     });
 
     final response = await ApiService.get('/admin/stats/overview');
+    final usersResp = await ApiService.get('/users/');
+    if (usersResp.isSuccess) {
+      final uData = usersResp.asMap;
+      _recentUsers = uData?['users'] as List? ?? usersResp.asList ?? [];
+    }
 
     if (!mounted) return;
 
@@ -396,6 +402,136 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   }
 
   // ── Admin Actions ──────────────────────────────────────
+    Widget _buildRecentUsersCard() {
+    final recent = _recentUsers.take(5).toList();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          ...recent.asMap().entries.map((entry) {
+            final index = entry.key;
+            final u = entry.value as Map<String, dynamic>;
+            final firstName = u['first_name']?.toString() ?? '';
+            final lastName = u['last_name']?.toString() ?? '';
+            final phone = u['phone']?.toString() ?? '';
+            final role = u['role']?.toString() ?? 'member';
+            final lastLogin = u['last_login_at']?.toString() ?? '';
+            final initial = firstName.isNotEmpty ? firstName[0].toUpperCase() : '?';
+            final fullName = lastName.isNotEmpty ? '$firstName $lastName' : firstName;
+            final isLast = index == recent.length - 1;
+
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                border: isLast
+                    ? null
+                    : const Border(bottom: BorderSide(color: AppTheme.dividerColor)),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: role == 'admin'
+                        ? AppTheme.accentGold
+                        : AppTheme.primaryBlue.withOpacity(0.12),
+                    child: Text(
+                      initial,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: role == 'admin' ? AppTheme.primaryBlueDark : AppTheme.primaryBlue,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              fullName.isEmpty ? 'Unknown' : fullName,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            if (role == 'admin')
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.accentGold.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Text(
+                                  'Admin',
+                                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppTheme.accentGoldDark),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(phone, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: lastLogin.isNotEmpty ? Colors.green.withOpacity(0.1) : Colors.grey.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      lastLogin.isNotEmpty ? 'Active' : 'New',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: lastLogin.isNotEmpty ? Colors.green[800] : Colors.grey[700],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+          InkWell(
+            onTap: () => _navigateTo(const AdminUsersScreen()),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: AppTheme.dividerColor)),
+              ),
+              child: const Text(
+                'View All Users →',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primaryBlue,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAdminActions() {
     final actions = [
       _AdminAction(
